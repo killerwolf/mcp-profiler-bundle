@@ -1,0 +1,15 @@
+services:
+    MCP\ServerBundle\Service\MCPServerService:
+        arguments:
+            - '@parameter_bag'
+        public: true
+
+    mcp_server:
+        alias: MCP\ServerBundle\Service\MCPServerService
+        public: true
+        
+    MCP\ServerBundle\Command\RunMCPServerCommand:
+        arguments:
+            - '@mcp_server'
+        tags:
+            - { name: 'console.command' }
