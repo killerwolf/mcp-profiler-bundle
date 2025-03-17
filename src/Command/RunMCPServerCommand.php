@@ -3,15 +3,16 @@
 namespace MCP\ServerBundle\Command;
 
 use MCP\ServerBundle\Service\MCPServerService;
+use Symfony\Component\Console\Attribute\AsCommand;
 use Symfony\Component\Console\Command\Command;
 use Symfony\Component\Console\Input\InputInterface;
 use Symfony\Component\Console\Output\OutputInterface;
 use Symfony\Component\Console\Style\SymfonyStyle;
 
+#[AsCommand(name: 'mcp:server:run', description: 'Run the MCP server')]
+
 class RunMCPServerCommand extends Command
 {
-    protected static string $defaultName = 'mcp:server:run';
-    protected static string $defaultDescription = 'Run the MCP server';
 
     private MCPServerService $mcpServerService;
 
@@ -24,8 +25,7 @@ class RunMCPServerCommand extends Command
     protected function configure()
     {
         $this
-            ->setDescription(self::$defaultDescription)
-        ;
+            ->setHelp('This command allows you to run the MCP server...');
     }
 
     protected function execute(InputInterface $input, OutputInterface $output): int

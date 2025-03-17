@@ -22,7 +22,7 @@ class MCPServerService
         $this->params = $params;
     }
 
-    public function initialize(array $config = null)
+    public function initialize(?array $config = null)
     {
         if ($config === null) {
             // Try to get config from Symfony parameters
@@ -41,12 +41,26 @@ class MCPServerService
         return $this;
     }
 
-    public function registerTools(string $toolsDirectory = null, array $config = [])
+    public function registerTools(?string $toolsDirectory = null, array $config = [])
     {
         $toolsDirectory = $toolsDirectory ?? $this->params->get('mcp_server.tools_directory');
         
-        // Discover and register tools
+        // Create tool registry
         $this->toolRegistry = new ToolRegistry();
+        
+        // First, try to get the ProfilerTool from the service container
+        // This allows us to inject dependencies like the Profiler service
+        try {
+            $container = $this->params->get('service_container');
+            if ($container && $container->has('MCP\\ServerBundle\\Tools\\ProfilerTool')) {
+                $profilerTool = $container->get('MCP\\ServerBundle\\Tools\\ProfilerTool');
+                $this->toolRegistry->register($profilerTool);
+            }
+        } catch (\Exception $e) {
+            // Silently continue if service container is not available
+        }
+        
+        // Then discover other tools
         $this->toolRegistry->discover($toolsDirectory, $config);
 
         $toolsCapability = new ToolsCapability();
@@ -58,7 +72,7 @@ class MCPServerService
         return $this;
     }
 
-    public function registerResources(string $resourcesDirectory = null, array $config = [])
+    public function registerResources(?string $resourcesDirectory = null, array $config = [])
     {
         $resourcesDirectory = $resourcesDirectory ?? $this->params->get('mcp_server.resources_directory');
         
