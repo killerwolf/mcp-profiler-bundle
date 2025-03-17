@@ -1,6 +1,6 @@
 <?php
 
-namespace App\Tools;
+namespace MCP\ServerBundle\Tools;
 
 use MCP\Server\Tool\Tool;
 use MCP\Server\Tool\Attribute\Tool as ToolAttribute;

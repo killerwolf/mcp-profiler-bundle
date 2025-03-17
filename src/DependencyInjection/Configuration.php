@@ -16,8 +16,13 @@ class Configuration implements ConfigurationInterface
             ->children()
                 ->scalarNode('name')->defaultValue('MCP Server')->end()
                 ->scalarNode('version')->defaultValue('1.0.0')->end()
-                ->scalarNode('tools_directory')->defaultValue('%kernel.project_dir%/tools')->end()
-                ->scalarNode('resources_directory')->defaultValue('%kernel.project_dir%/resources')->end()
+                ->arrayNode('profiler')
+                    ->addDefaultsIfNotSet()
+                    ->children()
+                        ->scalarNode('storage_path')->defaultValue('%kernel.cache_dir%/profiler')->end()
+                        ->booleanNode('enabled')->defaultTrue()->end()
+                    ->end()
+                ->end()
             ->end()
         ;
 

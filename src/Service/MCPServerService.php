@@ -4,7 +4,9 @@ namespace MCP\ServerBundle\Service;
 
 use MCP\Server\Server;
 use MCP\Server\Transport\StdioTransport;
+use MCP\Server\Tool\Tool;
 use MCP\Server\Tool\ToolRegistry;
+use MCP\Server\Resource\Resource;
 use MCP\Server\Resource\ResourceRegistry;
 use MCP\Server\Capability\ToolsCapability;
 use MCP\Server\Capability\ResourcesCapability;
@@ -12,10 +14,12 @@ use Symfony\Component\DependencyInjection\ParameterBag\ParameterBagInterface;
 
 class MCPServerService
 {
-    private ?Server $server;
+    private ?Server $server = null;
     private ParameterBagInterface $params;
     private ToolRegistry $toolRegistry;
     private ResourceRegistry $resourceRegistry;
+    private array $registeredTools = [];
+    private array $registeredResources = [];
 
     public function __construct(ParameterBagInterface $params)
     {
@@ -41,27 +45,40 @@ class MCPServerService
         return $this;
     }
 
-    public function registerTools(?string $toolsDirectory = null, array $config = [])
+    /**
+     * Set tools from tagged services
+     * 
+     * @param Tool[] $tools Array of tool service instances
+     */
+    public function setTools(array $tools)
     {
-        $toolsDirectory = $toolsDirectory ?? $this->params->get('mcp_server.tools_directory');
-        
+        $this->registeredTools = $tools;
+        return $this;
+    }
+
+    /**
+     * Set resources from tagged services
+     * 
+     * @param Resource[] $resources Array of resource service instances
+     */
+    public function setResources(array $resources)
+    {
+        $this->registeredResources = $resources;
+        return $this;
+    }
+
+    /**
+     * Register tools from tagged services
+     */
+    public function registerTools()
+    {
         // Create tool registry
         $this->toolRegistry = new ToolRegistry();
         
-        // First, try to get the ProfilerTool from the service container
-        // This allows us to inject dependencies like the Profiler service
-        try {
-            $container = $this->params->get('service_container');
-            if ($container && $container->has('MCP\\ServerBundle\\Tools\\ProfilerTool')) {
-                $profilerTool = $container->get('MCP\\ServerBundle\\Tools\\ProfilerTool');
-                $this->toolRegistry->register($profilerTool);
-            }
-        } catch (\Exception $e) {
-            // Silently continue if service container is not available
+        // Register tools from tagged services
+        foreach ($this->registeredTools as $tool) {
+            $this->toolRegistry->register($tool);
         }
-        
-        // Then discover other tools
-        $this->toolRegistry->discover($toolsDirectory, $config);
 
         $toolsCapability = new ToolsCapability();
         foreach ($this->toolRegistry->getTools() as $tool) {
@@ -72,13 +89,18 @@ class MCPServerService
         return $this;
     }
 
-    public function registerResources(?string $resourcesDirectory = null, array $config = [])
+    /**
+     * Register resources from tagged services
+     */
+    public function registerResources()
     {
-        $resourcesDirectory = $resourcesDirectory ?? $this->params->get('mcp_server.resources_directory');
-        
-        // Discover and register resources
+        // Create resource registry
         $this->resourceRegistry = new ResourceRegistry();
-        $this->resourceRegistry->discover($resourcesDirectory, $config);
+        
+        // Register resources from tagged services
+        foreach ($this->registeredResources as $resource) {
+            $this->resourceRegistry->register($resource);
+        }
 
         $resourcesCapability = new ResourcesCapability();
         foreach ($this->resourceRegistry->getResources() as $resource) {
