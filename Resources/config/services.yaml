@@ -14,6 +14,13 @@ services:
         tags:
             - { name: 'console.command' }
             
+    # Register the new ProfilerCommand
+    MCP\ServerBundle\Command\ProfilerCommand:
+        arguments:
+            - '@profiler'
+        tags:
+            - { name: 'console.command' }
+            
     # Register ProfilerTool as a service with the Profiler injected
     MCP\ServerBundle\Tools\ProfilerTool:
         arguments:
