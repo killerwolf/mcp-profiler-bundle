@@ -31,7 +31,7 @@ class RunMCPServerCommand extends Command
     protected function execute(InputInterface $input, OutputInterface $output): int
     {
         $io = new SymfonyStyle($input, $output);
-        $io->success('Starting MCP Server...');
+        //$io->success('Starting MCP Server...');
 
         try {
             $this->mcpServerService
