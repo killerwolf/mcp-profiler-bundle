@@ -208,6 +208,25 @@ The bundle provides the following commands:
 bin/console mcp:server:run
 ```
 
+### Using the MCP Inspector
+
+The MCP Inspector is a tool that allows you to interact with your MCP Server and test your tools and resources. You can use it with the following command:
+
+```bash
+npx --registry https://registry.npmjs.org @modelcontextprotocol/inspector php /path/to/your/project/bin/console --quiet mcp:server:run
+```
+
+For example, in this project:
+
+```bash
+npx --registry https://registry.npmjs.org @modelcontextprotocol/inspector php /Volumes/Work/main/img/bin/console --quiet mcp:server:run
+```
+
+This command:
+1. Uses `npx` to run the MCP Inspector tool from the npm registry
+2. Connects the Inspector to your Symfony application's MCP Server
+3. Provides an interactive interface to test your tools and resources
+
 ### Interacting with the Symfony Profiler
 
 ```bash
@@ -220,4 +239,4 @@ bin/console mcp:profiler show <token> --collector=request
 
 # Purge profiler data
 bin/console mcp:profiler purge
-``` 
+```

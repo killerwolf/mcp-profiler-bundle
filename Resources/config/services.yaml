@@ -30,8 +30,18 @@ services:
         tags:
             - { name: 'console.command' }
             
-    # Register ProfilerTool as a service with the Profiler and ParameterBag injected
-    MCP\ServerBundle\Tools\ProfilerTool:
+    # Register ProfilerGetByToken as a service with the Profiler and ParameterBag injected
+    MCP\ServerBundle\Tools\ProfilerGetByTokenTool:
+        arguments:
+            - '@?profiler'
+            - null
+            - '@parameter_bag'
+        public: true
+        tags:
+            - { name: 'mcp_server.tool' }
+            
+    # Register ProfilerListTool as a service with the Profiler and ParameterBag injected
+    MCP\ServerBundle\Tools\ProfilerListTool:
         arguments:
             - '@?profiler'
             - null

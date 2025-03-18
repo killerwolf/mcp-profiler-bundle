@@ -10,8 +10,8 @@ use Symfony\Component\DependencyInjection\ContainerInterface;
 use Symfony\Component\HttpKernel\Profiler\FileProfilerStorage;
 use Symfony\Component\DependencyInjection\ParameterBag\ParameterBagInterface;
 
-#[ToolAttribute('profiler', 'Access Symfony profiler data by token')]
-class ProfilerTool extends Tool {
+#[ToolAttribute('profiler_get_by_token', 'Access Symfony profiler data by token')]
+class ProfilerGetByTokenTool extends Tool {
     private ?Profiler $profiler = null;
     private static ?ContainerInterface $container = null;
     private ?ParameterBagInterface $parameterBag = null;
