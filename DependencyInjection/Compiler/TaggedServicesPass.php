@@ -1,6 +1,6 @@
 <?php
 
-namespace MCP\ServerBundle\DependencyInjection\Compiler;
+namespace Killerwolf\MCPProfilerBundle\DependencyInjection\Compiler;
 
 use Symfony\Component\DependencyInjection\Compiler\CompilerPassInterface;
 use Symfony\Component\DependencyInjection\ContainerBuilder;
@@ -11,26 +11,26 @@ class TaggedServicesPass implements CompilerPassInterface
     public function process(ContainerBuilder $container)
     {
         // Find the MCPServerService and add all tagged tools
-        if (!$container->has('MCP\ServerBundle\Service\MCPServerService')) {
+        if (!$container->has('Killerwolf\MCPProfilerBundle\Service\MCPServerService')) {
             return;
         }
         
-        $serverDefinition = $container->findDefinition('MCP\ServerBundle\Service\MCPServerService');
+        $serverDefinition = $container->findDefinition('Killerwolf\MCPProfilerBundle\Service\MCPServerService');
         
-        // Find all services tagged as 'mcp_server.tool'
-        $taggedTools = $container->findTaggedServiceIds('mcp_server.tool');
+        // Find all services tagged as 'mcp_profiler.tool'
+        $taggedTools = $container->findTaggedServiceIds('mcp_profiler.tool');
         $tools = [];
         foreach ($taggedTools as $id => $tags) {
             $tools[] = new Reference($id);
         }
         $serverDefinition->addMethodCall('setTools', [$tools]);
         
-        // Find all services tagged as 'mcp_server.resource'
-        $taggedResources = $container->findTaggedServiceIds('mcp_server.resource');
+        // Find all services tagged as 'mcp_profiler.resource'
+        $taggedResources = $container->findTaggedServiceIds('mcp_profiler.resource');
         $resources = [];
         foreach ($taggedResources as $id => $tags) {
             $resources[] = new Reference($id);
         }
         $serverDefinition->addMethodCall('setResources', [$resources]);
     }
-} 
+}

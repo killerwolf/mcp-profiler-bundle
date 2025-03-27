@@ -1,6 +1,6 @@
 <?php
 
-namespace MCP\ServerBundle\Service;
+namespace Killerwolf\MCPProfilerBundle\Service;
 
 use MCP\Server\Server;
 use MCP\Server\Transport\StdioTransport;
@@ -31,8 +31,8 @@ class MCPServerService
         if ($config === null) {
             // Try to get config from Symfony parameters
             $config = [
-                'name' => $this->params->get('mcp_server.name', 'MCP Server'),
-                'version' => $this->params->get('mcp_server.version', '1.0.0'),
+                'name' => $this->params->get('mcp_profiler.name', 'MCP Server'),
+                'version' => $this->params->get('mcp_profiler.version', '1.0.0'),
             ];
         }
 

@@ -1,6 +1,6 @@
 <?php
 
-namespace MCP\ServerBundle\Tools;
+namespace Killerwolf\MCPProfilerBundle\Tools;
 
 use MCP\Server\Tool\Tool;
 use MCP\Server\Tool\Attribute\Tool as ToolAttribute;

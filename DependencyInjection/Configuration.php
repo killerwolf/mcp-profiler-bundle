@@ -1,6 +1,6 @@
 <?php
 
-namespace MCP\ServerBundle\DependencyInjection;
+namespace Killerwolf\MCPProfilerBundle\DependencyInjection;
 
 use Symfony\Component\Config\Definition\Builder\TreeBuilder;
 use Symfony\Component\Config\Definition\ConfigurationInterface;
@@ -9,12 +9,12 @@ class Configuration implements ConfigurationInterface
 {
     public function getConfigTreeBuilder(): TreeBuilder
     {
-        $treeBuilder = new TreeBuilder('mcp_server');
+        $treeBuilder = new TreeBuilder('killerwolf_mcp_profiler');
         $rootNode = $treeBuilder->getRootNode();
 
         $rootNode
             ->children()
-                ->scalarNode('name')->defaultValue('MCP Server')->end()
+                ->scalarNode('name')->defaultValue('Symfony MCP Profiler Bundle')->end()
                 ->scalarNode('version')->defaultValue('1.0.0')->end()
                 ->arrayNode('profiler')
                     ->addDefaultsIfNotSet()

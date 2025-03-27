@@ -1,6 +1,6 @@
 <?php
 
-namespace MCP\ServerBundle\Command;
+namespace Killerwolf\MCPProfilerBundle\Command;
 
 use Symfony\Component\Console\Attribute\AsCommand;
 use Symfony\Component\Console\Command\Command;
@@ -191,4 +191,4 @@ EOT
             }
         }
     }
-} 
+}

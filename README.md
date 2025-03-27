@@ -1,11 +1,11 @@
 # MCP Server Bundle for Symfony
 
-This bundle integrates MCP Server capabilities into your Symfony application, providing a seamless way to use AI tools and resources in your project.
+This bundle Symfony MCP Profiler Bundle mimics the WebProfiler Bundle. It bridges the gap between Profiler data and your favorite (MCP enabled) AI-powerd IDE.  
 
 ## Installation
 
 ```bash
-composer require killerwolf/mcp-server-bundle
+composer require killerwolf/mcp-profiler-bundle:dev-main james2037/mcp-php-server:@dev 
 ```
 
 ## Configuration
@@ -15,7 +15,7 @@ Add the bundle to your `config/bundles.php`:
 ```php
 return [
     // ...
-    MCP\ServerBundle\MCPServerBundle::class => ['all' => true],
+    Killerwolf\MCPProfilerBundle\MCPProfilerBundle::class => ['dev' => true],
 ];
 ```
 
@@ -33,201 +33,45 @@ mcp_server:
 
 ## Built-in Tools
 
-The bundle comes with two pre-configured tools:
+@todo document available tools
 
-### Profile Tool
-
-Access Symfony profiler data by token:
-
-```php
-// Example in your JavaScript client
-const response = await mcp.tools.profiler({
-  token: "your-profiler-token"
-});
-console.log(response);
-```
-
-### Example Tool
-
-A simple echo tool that returns your input:
-
-```php
-// Example in your JavaScript client
-const response = await mcp.tools.example({
-  input: "Hello, MCP Server!"
-});
-console.log(response); // "You said: Hello, MCP Server!"
-```
-
-## Registering Custom Tools and Resources
-
-### Using Service Tags
-
-The bundle uses Symfony's service tagging system to discover and register tools and resources. This approach integrates with Symfony's Dependency Injection Container and allows for proper service injection.
-
-#### Tools
-
-1. Create your Tool class extending `MCP\Server\Tool\Tool`:
-
-```php
-<?php
-
-namespace App\MCP\Tool;
-
-use MCP\Server\Tool\Tool;
-use MCP\Server\Tool\Attribute\Tool as ToolAttribute;
-use MCP\Server\Tool\Attribute\Parameter as ParameterAttribute;
-
-#[ToolAttribute('my_tool', 'Description of my tool')]
-class MyTool extends Tool
-{
-    protected function doExecute(
-        #[ParameterAttribute('input', type: 'string', description: 'Input parameter')]
-        array $arguments
-    ): array {
-        // Implement your tool logic here
-        $result = "Processed: " . $arguments['input'];
-        
-        return $this->text($result);
-    }
-}
-```
-
-2. Register it as a service in your `services.yaml`:
-
-```yaml
-# config/services.yaml
-services:
-    App\MCP\Tool\MyTool:
-        # The tool tag is automatically added due to auto-configuration
-        # Or you can add it explicitly:
-        tags:
-            - { name: 'mcp_server.tool' }
-```
-
-#### Resources
-
-1. Create your Resource class extending `MCP\Server\Resource\Resource`:
-
-```php
-<?php
-
-namespace App\MCP\Resource;
-
-use MCP\Server\Resource\Resource;
-use MCP\Server\Resource\Attribute\Resource as ResourceAttribute;
-
-#[ResourceAttribute('my_resource', 'Description of my resource')]
-class MyResource extends Resource
-{
-    public function getFields(): array
-    {
-        return [
-            'id' => 'string',
-            'name' => 'string',
-            'created_at' => 'datetime'
-        ];
-    }
-    
-    public function get(array $params = []): array
-    {
-        // Implement your resource retrieval logic
-        return [
-            ['id' => '1', 'name' => 'Resource 1', 'created_at' => '2023-01-01T00:00:00Z'],
-            ['id' => '2', 'name' => 'Resource 2', 'created_at' => '2023-01-02T00:00:00Z']
-        ];
-    }
-}
-```
-
-2. Register it as a service in your `services.yaml`:
-
-```yaml
-# config/services.yaml
-services:
-    App\MCP\Resource\MyResource:
-        # The resource tag is automatically added due to auto-configuration
-        # Or you can add it explicitly:
-        tags:
-            - { name: 'mcp_server.resource' }
-```
-
-### Auto-configuration
-
-This bundle automatically configures services that:
-- Extend `MCP\Server\Tool\Tool` with the `mcp_server.tool` tag
-- Extend `MCP\Server\Resource\Resource` with the `mcp_server.resource` tag
-- Use the `#[Tool]` or `#[Resource]` attributes (PHP 8.0+)
-
-You don't need to manually add tags if you're using Symfony's auto-configuration feature.
-
-## Injecting Dependencies
-
-Because tools and resources are registered as services, you can inject other services into them:
-
-```php
-<?php
-
-namespace App\MCP\Tool;
-
-use MCP\Server\Tool\Tool;
-use MCP\Server\Tool\Attribute\Tool as ToolAttribute;
-use MCP\Server\Tool\Attribute\Parameter as ParameterAttribute;
-use Symfony\Component\HttpClient\HttpClientInterface;
-
-#[ToolAttribute('api_fetch', 'Fetch data from an API')]
-class ApiFetchTool extends Tool
-{
-    private HttpClientInterface $httpClient;
-    
-    public function __construct(HttpClientInterface $httpClient, array $config = [])
-    {
-        parent::__construct($config);
-        $this->httpClient = $httpClient;
-    }
-
-    protected function doExecute(
-        #[ParameterAttribute('url', type: 'string', description: 'URL to fetch')]
-        array $arguments
-    ): array {
-        $response = $this->httpClient->request('GET', $arguments['url']);
-        $data = $response->toArray();
-        
-        return $this->text(json_encode($data, JSON_PRETTY_PRINT));
-    }
-}
-```
 
 ## Commands
 
 The bundle provides the following commands:
 
-### Running the MCP Server
+### Configure the MCP Server in your IDE (Cursor, Claude Code, Cline, etc.)
 
-```bash
-bin/console mcp:server:run
+```json
+{
+  "mcpServers": {
+    "symfony-mcp": {
+      "command": "/Volumes/Work/git/symfony-demo/vendor/killerwolf/mcp-server-bundle/bin/run-mcp.sh",
+      "env": {
+        "BASE": "/Volumes/Work/git/symfony-demo"
+      },
+      "alwaysAllow": [
+        "profiler_list",
+        "profiler_get_all_collector_by_token",
+        "profiler_get_one_collector_by_token"
+      ]
+    }
+  }
+}
 ```
+PS: `command` is the absolut path to the `run-mcp.sh` script, and `BASE` is the environment variables providing the base path to your symfony project.
 
 ### Using the MCP Inspector
 
 The MCP Inspector is a tool that allows you to interact with your MCP Server and test your tools and resources. You can use it with the following command:
 
 ```bash
-npx --registry https://registry.npmjs.org @modelcontextprotocol/inspector php /path/to/your/project/bin/console --quiet mcp:server:run
+npx --registry https://registry.npmjs.org @modelcontextprotocol/inspector
 ```
 
-For example, in this project:
+@add image of the Inspector with the example usage
 
-```bash
-npx --registry https://registry.npmjs.org @modelcontextprotocol/inspector php /Volumes/Work/main/img/bin/console --quiet mcp:server:run
-```
-
-This command:
-1. Uses `npx` to run the MCP Inspector tool from the npm registry
-2. Connects the Inspector to your Symfony application's MCP Server
-3. Provides an interactive interface to test your tools and resources
-
-### Interacting with the Symfony Profiler
+### Interacting with the Symfony Profiler (for learning/debug puposes, not used by the MCP Server)
 
 ```bash
 # List recent profiler entries

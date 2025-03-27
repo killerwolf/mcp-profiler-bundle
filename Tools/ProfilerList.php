@@ -1,6 +1,6 @@
 <?php
 
-namespace MCP\ServerBundle\Tools;
+namespace Killerwolf\MCPProfilerBundle\Tools;
 
 use MCP\Server\Tool\Tool;
 use MCP\Server\Tool\Attribute\Tool as ToolAttribute;
@@ -11,7 +11,7 @@ use Symfony\Component\HttpKernel\Profiler\FileProfilerStorage;
 use Symfony\Component\DependencyInjection\ParameterBag\ParameterBagInterface;
 
 #[ToolAttribute('profiler_list', 'List recent Symfony profiler entries')]
-class ProfilerListTool extends Tool {
+class ProfilerList extends Tool {
     private ?Profiler $profiler = null;
     private static ?ContainerInterface $container = null;
     private ?ParameterBagInterface $parameterBag = null;
@@ -46,29 +46,16 @@ class ProfilerListTool extends Tool {
         $method = $arguments['method'] ?? null;
         $statusCode = $arguments['status_code'] ?? null;
         
-        // Get the profiler storage
-        $storage = $this->getProfilerStorage();
-        if (!$storage) {
-            return $this->text("Error: Profiler storage not available.");
-        }
-        
-        // Find profiles matching the criteria
-        $criteria = [];
-        if ($ip !== null) {
-            $criteria['ip'] = $ip;
-        }
-        if ($url !== null) {
-            $criteria['url'] = $url;
-        }
-        if ($method !== null) {
-            $criteria['method'] = $method;
-        }
-        if ($statusCode !== null) {
-            $criteria['status_code'] = $statusCode;
+        // Get the profiler
+        $profiler = $this->getProfiler();
+        if (!$profiler) {
+            // Fall back to storage-based approach if profiler is not available
+            return $this->legacyFindProfiles($limit, $ip, $url, $method, $statusCode);
         }
         
         try {
-            $tokens = $storage->find('', '', $limit, '', '', '');
+            // Use the profiler to find profiles matching the criteria
+            $tokens = $profiler->find($ip, $url, $limit, $method, null, null, $statusCode);
             
             if (empty($tokens)) {
                 return $this->text("No profiler entries found.");
@@ -77,27 +64,19 @@ class ProfilerListTool extends Tool {
             // Format the results
             $results = [];
             foreach ($tokens as $token) {
-                // Apply additional filtering if criteria were specified
-                if (!empty($criteria)) {
-                    $match = true;
-                    foreach ($criteria as $key => $value) {
-                        if (isset($token[$key]) && $token[$key] != $value) {
-                            $match = false;
-                            break;
-                        }
-                    }
-                    if (!$match) {
-                        continue;
-                    }
+                // Load the full profile to get complete data
+                $profile = $profiler->loadProfile($token['token']);
+                if (!$profile) {
+                    continue;
                 }
                 
                 $results[] = [
-                    'token' => $token['token'],
-                    'ip' => $token['ip'],
-                    'method' => $token['method'],
-                    'url' => $token['url'],
-                    'time' => date('Y-m-d H:i:s', $token['time']),
-                    'status_code' => $token['status_code']
+                    'token' => $profile->getToken(),
+                    'ip' => $profile->getIp(),
+                    'method' => $profile->getMethod(),
+                    'url' => $profile->getUrl(),
+                    'time' => date('Y-m-d H:i:s', $profile->getTime()),
+                    'status_code' => $profile->getStatusCode()
                 ];
             }
             
@@ -113,16 +92,13 @@ class ProfilerListTool extends Tool {
     }
     
     /**
-     * Get the profiler storage
+     * Get the profiler instance
      */
-    private function getProfilerStorage()
+    private function getProfiler(): ?Profiler
     {
-        // If profiler is already set, get its storage
+        // If profiler is already set, return it
         if ($this->profiler !== null) {
-            $reflection = new \ReflectionClass($this->profiler);
-            $storageProperty = $reflection->getProperty('storage');
-            $storageProperty->setAccessible(true);
-            return $storageProperty->getValue($this->profiler);
+            return $this->profiler;
         }
         
         // Try to get profiler from container
@@ -148,6 +124,19 @@ class ProfilerListTool extends Tool {
         // Get profiler from container
         if (self::$container !== null && self::$container->has('profiler')) {
             $this->profiler = self::$container->get('profiler');
+            return $this->profiler;
+        }
+        
+        return null;
+    }
+    
+    /**
+     * Get the profiler storage
+     */
+    private function getProfilerStorage()
+    {
+        // If profiler is already set, get its storage
+        if ($this->profiler !== null) {
             $reflection = new \ReflectionClass($this->profiler);
             $storageProperty = $reflection->getProperty('storage');
             $storageProperty->setAccessible(true);
@@ -157,10 +146,10 @@ class ProfilerListTool extends Tool {
         // Try to create a storage directly
         $configuredPath = null;
         
-        if ($this->parameterBag !== null && $this->parameterBag->has('mcp_server.profiler.storage_path')) {
-            $configuredPath = $this->parameterBag->get('mcp_server.profiler.storage_path');
-        } elseif (self::$container !== null && self::$container->hasParameter('mcp_server.profiler.storage_path')) {
-            $configuredPath = self::$container->getParameter('mcp_server.profiler.storage_path');
+        if ($this->parameterBag !== null && $this->parameterBag->has('mcp_profiler.profiler.storage_path')) {
+            $configuredPath = $this->parameterBag->get('mcp_profiler.profiler.storage_path');
+        } elseif (self::$container !== null && self::$container->hasParameter('mcp_profiler.profiler.storage_path')) {
+            $configuredPath = self::$container->getParameter('mcp_profiler.profiler.storage_path');
         }
         
         // Check if configured path exists and is usable
@@ -182,5 +171,48 @@ class ProfilerListTool extends Tool {
         }
         
         return null;
+    }
+    
+    /**
+     * Legacy method to find profiles using storage directly
+     * Used as a fallback when profiler is not available
+     */
+    private function legacyFindProfiles(int $limit, ?string $ip, ?string $url, ?string $method, ?string $statusCode): array
+    {
+        // Get the profiler storage
+        $storage = $this->getProfilerStorage();
+        if (!$storage) {
+            return $this->text("Error: Profiler storage not available.");
+        }
+        
+        try {
+            $tokens = $storage->find($ip ?? '', $url ?? '', $limit, $method ?? '', null, null, $statusCode);
+            
+            if (empty($tokens)) {
+                return $this->text("No profiler entries found.");
+            }
+            
+            // Format the results
+            $results = [];
+            foreach ($tokens as $token) {
+                $results[] = [
+                    'token' => $token['token'],
+                    'ip' => $token['ip'],
+                    'method' => $token['method'],
+                    'url' => $token['url'],
+                    'time' => date('Y-m-d H:i:s', $token['time']),
+                    'status_code' => $token['status_code']
+                ];
+            }
+            
+            if (empty($results)) {
+                return $this->text("No profiler entries match the specified criteria.");
+            }
+            
+            return $this->text(json_encode($results, JSON_PRETTY_PRINT));
+            
+        } catch (\Exception $e) {
+            return $this->text("Error retrieving profiler entries: " . $e->getMessage());
+        }
     }
 }

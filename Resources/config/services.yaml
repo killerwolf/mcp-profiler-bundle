@@ -6,32 +6,31 @@ services:
         public: false
 
     # Make the MCPServerService public
-    MCP\ServerBundle\Service\MCPServerService:
+    Killerwolf\MCPProfilerBundle\Service\MCPServerService:
         arguments:
             - '@parameter_bag'
         public: true
 
     # Alias for the MCPServerService
     mcp_server:
-        alias: MCP\ServerBundle\Service\MCPServerService
+        alias: Killerwolf\MCPProfilerBundle\Service\MCPServerService
         public: true
         
     # Command for running the MCP server
-    MCP\ServerBundle\Command\RunMCPServerCommand:
+    Killerwolf\MCPProfilerBundle\Command\RunMCPServerCommand:
         arguments:
             - '@mcp_server'
         tags:
             - { name: 'console.command' }
             
     # Register the new ProfilerCommand
-    MCP\ServerBundle\Command\ProfilerCommand:
+    Killerwolf\MCPProfilerBundle\Command\ProfilerCommand:
         arguments:
             - '@profiler'
         tags:
             - { name: 'console.command' }
             
-    # Register ProfilerGetByToken as a service with the Profiler and ParameterBag injected
-    MCP\ServerBundle\Tools\ProfilerGetByTokenTool:
+    Killerwolf\MCPProfilerBundle\Tools\ProfilerList:
         arguments:
             - '@?profiler'
             - null
@@ -40,8 +39,7 @@ services:
         tags:
             - { name: 'mcp_server.tool' }
             
-    # Register ProfilerListTool as a service with the Profiler and ParameterBag injected
-    MCP\ServerBundle\Tools\ProfilerListTool:
+    Killerwolf\MCPProfilerBundle\Tools\ProfilerGetAllCollectorByToken:
         arguments:
             - '@?profiler'
             - null
@@ -49,9 +47,11 @@ services:
         public: true
         tags:
             - { name: 'mcp_server.tool' }
-            
-    # Register ExampleTool as a service
-    MCP\ServerBundle\Tools\ExampleTool:
+
+    Killerwolf\MCPProfilerBundle\Tools\ProfilerGetOneCollectorByToken:
+        arguments:
+            - '@?profiler'
+            - null
         public: true
         tags:
             - { name: 'mcp_server.tool' }

@@ -1,8 +1,8 @@
 <?php
 
-namespace MCP\ServerBundle\Command;
+namespace Killerwolf\MCPProfilerBundle\Command;
 
-use MCP\ServerBundle\Service\MCPServerService;
+use Killerwolf\MCPProfilerBundle\Service\MCPServerService;
 use Symfony\Component\Console\Attribute\AsCommand;
 use Symfony\Component\Console\Command\Command;
 use Symfony\Component\Console\Input\InputInterface;
@@ -10,7 +10,6 @@ use Symfony\Component\Console\Output\OutputInterface;
 use Symfony\Component\Console\Style\SymfonyStyle;
 
 #[AsCommand(name: 'mcp:server:run', description: 'Run the MCP server')]
-
 class RunMCPServerCommand extends Command
 {
 
@@ -30,18 +29,15 @@ class RunMCPServerCommand extends Command
 
     protected function execute(InputInterface $input, OutputInterface $output): int
     {
-        $io = new SymfonyStyle($input, $output);
-        //$io->success('Starting MCP Server...');
-
         try {
             $this->mcpServerService
                 ->initialize()
                 ->registerTools()
                 ->registerResources()
                 ->run();
-            
             return Command::SUCCESS;
         } catch (\Exception $e) {
+            $io = new SymfonyStyle($input, $output);
             $io->error('Error running MCP Server: ' . $e->getMessage());
             return Command::FAILURE;
         }
