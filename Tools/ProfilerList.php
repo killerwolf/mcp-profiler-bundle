@@ -2,16 +2,14 @@
 
 namespace Killerwolf\MCPProfilerBundle\Tools;
 
-use MCP\Server\Tool\Tool;
-use MCP\Server\Tool\Attribute\Tool as ToolAttribute;
-use MCP\Server\Tool\Attribute\Parameter as ParameterAttribute;
+use PhpLlm\Mcp\Sdk\Contracts\ToolInterface;
+use PhpLlm\Mcp\Sdk\Data\Parameter; // Assuming Parameter class for definition
 use Symfony\Component\HttpKernel\Profiler\Profiler;
 use Symfony\Component\DependencyInjection\ContainerInterface;
 use Symfony\Component\HttpKernel\Profiler\FileProfilerStorage;
 use Symfony\Component\DependencyInjection\ParameterBag\ParameterBagInterface;
 
-#[ToolAttribute('profiler_list', 'List recent Symfony profiler entries')]
-class ProfilerList extends Tool {
+class ProfilerList implements ToolInterface {
     private ?Profiler $profiler = null;
     private static ?ContainerInterface $container = null;
     private ?ParameterBagInterface $parameterBag = null;
@@ -20,26 +18,43 @@ class ProfilerList extends Tool {
     {
         // Handle different constructor argument options
         if ($profilerOrConfig instanceof Profiler) {
-            parent::__construct($config ?? []);
             $this->profiler = $profilerOrConfig;
         } elseif (is_array($profilerOrConfig)) {
-            parent::__construct($profilerOrConfig);
+            // Config was passed as first argument, handle if needed
         } else {
-            parent::__construct($config ?? []);
+            // No profiler or config passed initially
         }
         
         $this->parameterBag = $parameterBag;
     }
 
-    protected function doExecute(
-        #[ParameterAttribute('limit', type: 'integer', description: 'Maximum number of profiles to return', required: false)]
-        #[ParameterAttribute('ip', type: 'string', description: 'Filter by IP address', required: false)]
-        #[ParameterAttribute('url', type: 'string', description: 'Filter by URL', required: false)]
-        #[ParameterAttribute('method', type: 'string', description: 'Filter by HTTP method', required: false)]
-        #[ParameterAttribute('status_code', type: 'integer', description: 'Filter by HTTP status code', required: false)]
-        array $arguments
-    ): array {
-        // Set default values if not provided
+    // --- ToolInterface Methods ---
+
+    public function getName(): string
+    {
+        return 'profiler_list';
+    }
+
+    public function getDescription(): string
+    {
+        return 'List recent Symfony profiler entries';
+    }
+
+    public function getParameters(): array
+    {
+        // Assuming Parameter class structure from php-llm/mcp-sdk
+        return [
+            new Parameter('limit', Parameter::TYPE_INTEGER, 'Maximum number of profiles to return', false, 20), // Added default
+            new Parameter('ip', Parameter::TYPE_STRING, 'Filter by IP address', false),
+            new Parameter('url', Parameter::TYPE_STRING, 'Filter by URL', false),
+            new Parameter('method', Parameter::TYPE_STRING, 'Filter by HTTP method', false),
+            new Parameter('status_code', Parameter::TYPE_INTEGER, 'Filter by HTTP status code', false),
+        ];
+    }
+
+    public function execute(array $arguments): string
+    {
+        // Set default values if not provided (using defaults from getParameters if possible)
         $limit = $arguments['limit'] ?? 20;
         $ip = $arguments['ip'] ?? null;
         $url = $arguments['url'] ?? null;
@@ -51,14 +66,13 @@ class ProfilerList extends Tool {
         if (!$profiler) {
             // Fall back to storage-based approach if profiler is not available
             return $this->legacyFindProfiles($limit, $ip, $url, $method, $statusCode);
-        }
-        
+        }        
         try {
             // Use the profiler to find profiles matching the criteria
             $tokens = $profiler->find($ip, $url, $limit, $method, null, null, $statusCode);
             
             if (empty($tokens)) {
-                return $this->text("No profiler entries found.");
+                return "No profiler entries found.";
             }
             
             // Format the results
@@ -81,13 +95,13 @@ class ProfilerList extends Tool {
             }
             
             if (empty($results)) {
-                return $this->text("No profiler entries match the specified criteria.");
+                return "No profiler entries match the specified criteria.";
             }
             
-            return $this->text(json_encode($results, JSON_PRETTY_PRINT));
+            return json_encode($results, JSON_PRETTY_PRINT);
             
         } catch (\Exception $e) {
-            return $this->text("Error retrieving profiler entries: " . $e->getMessage());
+            return "Error retrieving profiler entries: " . $e->getMessage();
         }
     }
     
@@ -115,7 +129,10 @@ class ProfilerList extends Tool {
                     require_once $kernelFile;
                     if (class_exists('\\App_KernelDevDebugContainer')) {
                         $container = new \App_KernelDevDebugContainer();
-                        self::$container = $container;
+                        // Ensure type compatibility if possible, otherwise suppress error or cast
+                        if ($container instanceof ContainerInterface) {
+                             self::$container = $container;
+                        }
                     }
                 }
             }
@@ -123,8 +140,11 @@ class ProfilerList extends Tool {
         
         // Get profiler from container
         if (self::$container !== null && self::$container->has('profiler')) {
-            $this->profiler = self::$container->get('profiler');
-            return $this->profiler;
+            $profilerService = self::$container->get('profiler');
+             if ($profilerService instanceof Profiler) {
+                 $this->profiler = $profilerService;
+                 return $this->profiler;
+             }
         }
         
         return null;
@@ -137,10 +157,16 @@ class ProfilerList extends Tool {
     {
         // If profiler is already set, get its storage
         if ($this->profiler !== null) {
-            $reflection = new \ReflectionClass($this->profiler);
-            $storageProperty = $reflection->getProperty('storage');
-            $storageProperty->setAccessible(true);
-            return $storageProperty->getValue($this->profiler);
+            try {
+                $reflection = new \ReflectionClass($this->profiler);
+                if ($reflection->hasProperty('storage')) {
+                    $storageProperty = $reflection->getProperty('storage');
+                    // $storageProperty->setAccessible(true); // Deprecated in PHP 8.1+
+                    return $storageProperty->getValue($this->profiler);
+                }
+            } catch (\ReflectionException $e) {
+                 // Handle reflection error if needed
+            }
         }
         
         // Try to create a storage directly
@@ -160,12 +186,12 @@ class ProfilerList extends Tool {
         // Common storage locations to try
         $storagePaths = [
             getcwd() . '/var/cache/dev/profiler',
-            $_SERVER['DOCUMENT_ROOT'] . '/var/cache/dev/profiler',
+            ($_SERVER['DOCUMENT_ROOT'] ?? getcwd()) . '/var/cache/dev/profiler', // Safer DOCUMENT_ROOT access
             sys_get_temp_dir() . '/symfony/profiler'
         ];
         
         foreach ($storagePaths as $path) {
-            if (is_dir($path)) {
+            if ($path && is_dir($path)) { // Check path is not empty
                 return new FileProfilerStorage('file:'.$path);
             }
         }
@@ -177,19 +203,19 @@ class ProfilerList extends Tool {
      * Legacy method to find profiles using storage directly
      * Used as a fallback when profiler is not available
      */
-    private function legacyFindProfiles(int $limit, ?string $ip, ?string $url, ?string $method, ?string $statusCode): array
+    private function legacyFindProfiles(int $limit, ?string $ip, ?string $url, ?string $method, ?string $statusCode): string
     {
         // Get the profiler storage
         $storage = $this->getProfilerStorage();
         if (!$storage) {
-            return $this->text("Error: Profiler storage not available.");
+            return "Error: Profiler storage not available.";
         }
         
         try {
             $tokens = $storage->find($ip ?? '', $url ?? '', $limit, $method ?? '', null, null, $statusCode);
             
             if (empty($tokens)) {
-                return $this->text("No profiler entries found.");
+                return "No profiler entries found.";
             }
             
             // Format the results
@@ -206,13 +232,13 @@ class ProfilerList extends Tool {
             }
             
             if (empty($results)) {
-                return $this->text("No profiler entries match the specified criteria.");
+                return "No profiler entries match the specified criteria.";
             }
             
-            return $this->text(json_encode($results, JSON_PRETTY_PRINT));
+            return json_encode($results, JSON_PRETTY_PRINT);
             
         } catch (\Exception $e) {
-            return $this->text("Error retrieving profiler entries: " . $e->getMessage());
+            return "Error retrieving profiler entries: " . $e->getMessage();
         }
     }
 }

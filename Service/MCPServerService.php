@@ -2,22 +2,22 @@
 
 namespace Killerwolf\MCPProfilerBundle\Service;
 
-use MCP\Server\Server;
-use MCP\Server\Transport\StdioTransport;
-use MCP\Server\Tool\Tool;
-use MCP\Server\Tool\ToolRegistry;
-use MCP\Server\Resource\Resource;
-use MCP\Server\Resource\ResourceRegistry;
-use MCP\Server\Capability\ToolsCapability;
-use MCP\Server\Capability\ResourcesCapability;
+use PhpLlm\Mcp\Sdk\Server;
+use PhpLlm\Mcp\Sdk\Transport\StdioTransport;
+use PhpLlm\Mcp\Sdk\Contracts\ToolInterface; // Assuming interface name
+// Removed: use MCP\Server\Tool\ToolRegistry;
+use PhpLlm\Mcp\Sdk\Contracts\ResourceInterface; // Assuming interface name
+// Removed: use MCP\Server\Resource\ResourceRegistry;
+// Removed: use MCP\Server\Capability\ToolsCapability;
+// Removed: use MCP\Server\Capability\ResourcesCapability;
 use Symfony\Component\DependencyInjection\ParameterBag\ParameterBagInterface;
 
 class MCPServerService
 {
     private ?Server $server = null;
     private ParameterBagInterface $params;
-    private ToolRegistry $toolRegistry;
-    private ResourceRegistry $resourceRegistry;
+    // private ToolRegistry $toolRegistry; // Removed
+    // private ResourceRegistry $resourceRegistry; // Removed
     private array $registeredTools = [];
     private array $registeredResources = [];
 
@@ -48,7 +48,7 @@ class MCPServerService
     /**
      * Set tools from tagged services
      * 
-     * @param Tool[] $tools Array of tool service instances
+     * @param ToolInterface[] $tools Array of tool service instances
      */
     public function setTools(array $tools)
     {
@@ -59,7 +59,7 @@ class MCPServerService
     /**
      * Set resources from tagged services
      * 
-     * @param Resource[] $resources Array of resource service instances
+     * @param ResourceInterface[] $resources Array of resource service instances
      */
     public function setResources(array $resources)
     {
@@ -72,20 +72,13 @@ class MCPServerService
      */
     public function registerTools()
     {
-        // Create tool registry
-        $this->toolRegistry = new ToolRegistry();
-        
         // Register tools from tagged services
         foreach ($this->registeredTools as $tool) {
-            $this->toolRegistry->register($tool);
+            // Assuming the new Server class has an addTool method
+            if ($this->server && $tool instanceof ToolInterface) {
+                $this->server->addTool($tool);
+            }
         }
-
-        $toolsCapability = new ToolsCapability();
-        foreach ($this->toolRegistry->getTools() as $tool) {
-            $toolsCapability->addTool($tool);
-        }
-        $this->server->addCapability($toolsCapability);
-
         return $this;
     }
 
@@ -94,20 +87,13 @@ class MCPServerService
      */
     public function registerResources()
     {
-        // Create resource registry
-        $this->resourceRegistry = new ResourceRegistry();
-        
         // Register resources from tagged services
         foreach ($this->registeredResources as $resource) {
-            $this->resourceRegistry->register($resource);
+            // Assuming the new Server class has an addResource method
+            if ($this->server && $resource instanceof ResourceInterface) {
+                $this->server->addResource($resource);
+            }
         }
-
-        $resourcesCapability = new ResourcesCapability();
-        foreach ($this->resourceRegistry->getResources() as $resource) {
-            $resourcesCapability->addResource($resource);
-        }
-        $this->server->addCapability($resourcesCapability);
-
         return $this;
     }
 
