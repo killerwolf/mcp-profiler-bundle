@@ -15,17 +15,15 @@ services:
             $tools: !tagged_iterator mcp_server.tool
             $params: '@parameter_bag'
             $logger: '@?logger'
-        public: true # Keep public as it's aliased and used by command
 
     # Alias for the MCPServerService
     mcp_server:
         alias: Killerwolf\MCPProfilerBundle\Service\MCPServerService
-        public: true # Keep public as it's used by command
 
     # Command for running the MCP server
     Killerwolf\MCPProfilerBundle\Command\RunMCPServerCommand:
         arguments:
-            - '@mcp_server' # Inject the service alias
+            - '@mcp_server'
         tags:
             - { name: 'console.command' }
 
@@ -43,7 +41,6 @@ services:
             - '@?profiler'
             - null # Config argument (kept from original)
             - '@parameter_bag' # Kept, as constructor still accepts it
-        # public: false # Tools likely don't need to be public services
         tags:
             - { name: 'mcp_server.tool' }
 
@@ -51,7 +48,6 @@ services:
         arguments:
             - '@?profiler'
             - null # Config argument
-        # public: false
         tags:
             - { name: 'mcp_server.tool' }
 
@@ -59,7 +55,6 @@ services:
         arguments:
             - '@?profiler'
             - null # Config argument
-        # public: false
         tags:
             - { name: 'mcp_server.tool' }
 
@@ -68,12 +63,9 @@ services:
             - '@?profiler'
             - null # Config argument
             - '@parameter_bag' # Kept, as constructor still accepts it
-        # public: false
         tags:
             - { name: 'mcp_server.tool' }
 
     Killerwolf\MCPProfilerBundle\Tools\ExampleTool:
-        # No constructor arguments needed for the refactored version
-        # public: false
         tags:
             - { name: 'mcp_server.tool' }

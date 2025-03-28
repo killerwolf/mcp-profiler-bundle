@@ -33,8 +33,6 @@ class RunMCPServerCommand extends Command
             // Pass input and output to the run method
             $this->mcpServerService
                 ->initialize()
-                // ->registerTools() // Removed in service
-                // ->registerResources() // Removed in service
                 ->run($input, $output); // Pass input and output
             return Command::SUCCESS;
         } catch (\Exception $e) {
