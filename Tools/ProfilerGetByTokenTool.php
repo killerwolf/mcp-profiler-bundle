@@ -2,45 +2,55 @@
 
 namespace Killerwolf\MCPProfilerBundle\Tools;
 
-use MCP\Server\Tool\Tool;
-use MCP\Server\Tool\Attribute\Tool as ToolAttribute;
-use MCP\Server\Tool\Attribute\Parameter as ParameterAttribute;
+// Remove ToolInterface use
+// Remove Parameter use
+use PhpLlm\LlmChain\Chain\ToolBox\Attribute\AsTool; // Add AsTool attribute
 use Symfony\Component\HttpKernel\Profiler\Profiler;
 use Symfony\Component\DependencyInjection\ContainerInterface;
 use Symfony\Component\DependencyInjection\ParameterBag\ParameterBagInterface;
 
-#[ToolAttribute('profiler_get_by_token', 'Access Symfony profiler data by token')]
-class ProfilerGetByTokenTool extends Tool {
+#[AsTool(
+    name: 'profiler_get_by_token',
+    description: 'Access Symfony profiler data by token',
+    method: 'execute' // Point to the execute method
+)]
+class ProfilerGetByTokenTool { // Remove implements ToolInterface
     private ?Profiler $profiler = null;
     private static ?ContainerInterface $container = null;
     private ?ParameterBagInterface $parameterBag = null;
 
     public function __construct($profilerOrConfig = null, ?array $config = null, ?ParameterBagInterface $parameterBag = null)
     {
-        // Handle different constructor argument options
         if ($profilerOrConfig instanceof Profiler) {
-            parent::__construct($config ?? []);
             $this->profiler = $profilerOrConfig;
         } elseif (is_array($profilerOrConfig)) {
-            parent::__construct($profilerOrConfig);
+            // Config passed as first arg
         } else {
-            parent::__construct($config ?? []);
+            // No initial config
         }
-        
         $this->parameterBag = $parameterBag;
     }
 
-    protected function doExecute(
-        #[ParameterAttribute('token', type: 'string', description: 'The profiler token to retrieve data for')]
-        array $arguments
-    ): array {
+    // Remove getName, getDescription, getParameters methods
 
-        $token = $arguments['token'];        
+    // Add type hint for the token parameter
+    public function execute(string $token): string
+    {
+        // Ensure profiler is available
+        $profiler = $this->getProfiler();
+        if (!$profiler) {
+            return json_encode(['error' => 'Profiler service not available.']);
+        }
+
         // Load the profile for the given token
-        $profile = $this->profiler->loadProfile($token);
+        try {
+            $profile = $profiler->loadProfile($token);
+        } catch (\Exception $e) {
+             return json_encode(['error' => "Error loading profile for token {$token}: " . $e->getMessage()]);
+        }
         
         if (!$profile) {
-            return $this->text("No profile found for token: {$token}");
+            return json_encode(['error' => "No profile found for token: {$token}"]);
         }
         
         // Prepare the response data
@@ -57,71 +67,114 @@ class ProfilerGetByTokenTool extends Tool {
         // Get all collectors from the profile
         $collectors = $profile->getCollectors();
 
-        // Add collector data
+        // Add collector data (Keep the existing complex logic for handling different collectors)
         foreach ($collectors as $collector) {
             $collectorName = $collector->getName();
             
-            // Different handling based on collector type
             if (method_exists($collector, 'getData')) {
-                // Standard case - collector has getData() method
-                $data['collectors'][$collectorName] = $collector->getData();
+                try {
+                    $collectorData = $collector->getData();
+                    json_encode($collectorData); 
+                    $data['collectors'][$collectorName] = $collectorData;
+                } catch (\Exception $e) {
+                     $data['collectors'][$collectorName] = ['error' => 'Could not serialize data: ' . $e->getMessage()];
+                }
             } elseif ($collector instanceof \Symfony\Component\HttpKernel\DataCollector\RequestDataCollector) {
-                // Special handling for RequestDataCollector
-                $requestData = [
-                    'method' => $collector->getMethod(),
-                    'request_headers' => $collector->getRequestHeaders()->all(),
-                    'response_headers' => $collector->getResponseHeaders()->all(),
-                    'request_server' => $collector->getRequestServer()->all(),
-                    'request_cookies' => $collector->getRequestCookies()->all(),
-                    'request_attributes' => $collector->getRequestAttributes()->all(),
-                    'request_query' => $collector->getRequestQuery()->all(),
-                    'request_request' => $collector->getRequestRequest()->all(),
-                    'content_type' => $collector->getContentType(),
-                    'status_code' => $collector->getStatusCode(),
-                    'status_text' => $collector->getStatusText(),
-                ];
-                $data['collectors'][$collectorName] = $requestData;
+                 try {
+                    $requestData = [
+                        'method' => $collector->getMethod(),
+                        'request_headers' => $collector->getRequestHeaders()->all(),
+                        'response_headers' => $collector->getResponseHeaders()->all(),
+                        'request_server' => $collector->getRequestServer()->all(),
+                        'request_cookies' => $collector->getRequestCookies()->all(),
+                        'request_attributes' => $collector->getRequestAttributes()->all(),
+                        'request_query' => $collector->getRequestQuery()->all(),
+                        'request_request' => $collector->getRequestRequest()->all(),
+                        'content_type' => $collector->getContentType(),
+                        'status_code' => $collector->getStatusCode(),
+                        'status_text' => $collector->getStatusText(),
+                    ];
+                    json_encode($requestData); 
+                    $data['collectors'][$collectorName] = $requestData;
+                 } catch (\Exception $e) {
+                     $data['collectors'][$collectorName] = ['error' => 'Could not serialize RequestDataCollector: ' . $e->getMessage()];
+                 }
             } else {
-                // Fallback for other collectors - try to extract data using reflection
                 try {
                     $reflectionClass = new \ReflectionClass($collector);
                     $collectorData = [];
-                    
-                    // Try to get public properties
                     foreach ($reflectionClass->getProperties(\ReflectionProperty::IS_PUBLIC) as $property) {
                         if (!$property->isStatic()) {
                             $propertyName = $property->getName();
-                            $collectorData[$propertyName] = $property->getValue($collector);
+                            $value = $property->getValue($collector);
+                            json_encode($value); 
+                            $collectorData[$propertyName] = $value;
                         }
                     }
-                    
-                    // Try to get data property if it exists
                     if ($reflectionClass->hasProperty('data')) {
                         $dataProperty = $reflectionClass->getProperty('data');
-                        $dataProperty->setAccessible(true);
                         $dataValue = $dataProperty->getValue($collector);
-                        
-                        // Handle Symfony VarDumper Data objects
                         if ($dataValue instanceof \Symfony\Component\VarDumper\Cloner\Data) {
-                            // For VarDumper Data objects, we can't directly merge them
                             $collectorData['data_object'] = 'Symfony VarDumper Data object (not directly serializable)';
-                        } elseif (is_array($dataValue)) {
-                            // Only merge if it's actually an array
-                            $collectorData = array_merge($collectorData, $dataValue);
-                        } elseif ($dataValue !== null) {
-                            // For other non-null values, store them as a special property
-                            $collectorData['data_value'] = $dataValue;
+                        } else {
+                             json_encode($dataValue);
+                             if (is_array($dataValue)) {
+                                 $collectorData = array_merge($collectorData, $dataValue);
+                             } elseif ($dataValue !== null) {
+                                 $collectorData['data_value'] = $dataValue;
+                             }
                         }
                     }
-                    
                     $data['collectors'][$collectorName] = $collectorData;
                 } catch (\Exception $e) {
-                    // If reflection fails, store the error
-                    $data['collectors'][$collectorName] = ['error' => 'Could not extract data: ' . $e->getMessage()];
+                    $data['collectors'][$collectorName] = ['error' => 'Could not extract or serialize data: ' . $e->getMessage()];
                 }
             }
         }
         
-        return $this->text(json_encode($data, JSON_PRETTY_PRINT));
+        // Return JSON string
+        try {
+             return json_encode($data, JSON_PRETTY_PRINT | JSON_INVALID_UTF8_SUBSTITUTE);
+        } catch (\Exception $e) {
+             return json_encode(['error' => 'Failed to encode final data: ' . $e->getMessage()]);
+        }
+    }
+
+    // --- Helper methods remain the same ---
+    /**
+     * Get the profiler instance
+     */
+    private function getProfiler(): ?Profiler
+    {
+        // ... (keep existing implementation) ...
+        if ($this->profiler !== null) {
+            return $this->profiler;
+        }
+        if (self::$container === null) {
+            global $kernel;
+            if (isset($kernel) && method_exists($kernel, 'getContainer')) {
+                self::$container = $kernel->getContainer();
+            } else if (class_exists('\\Symfony\\Component\\HttpKernel\\KernelInterface')) {
+                $kernelFile = $_SERVER['DOCUMENT_ROOT'] ?? getcwd();
+                $kernelFile = rtrim($kernelFile, '/') . '/var/cache/dev/App_KernelDevDebugContainer.php';
+                if (file_exists($kernelFile)) {
+                    require_once $kernelFile;
+                    if (class_exists('\\App_KernelDevDebugContainer')) {
+                        $container = new \App_KernelDevDebugContainer();
+                        if ($container instanceof ContainerInterface) {
+                             self::$container = $container;
+                        }
+                    }
+                }
+            }
+        }
+        if (self::$container !== null && self::$container->has('profiler')) {
+             $profilerService = self::$container->get('profiler');
+             if ($profilerService instanceof Profiler) {
+                 $this->profiler = $profilerService;
+                 return $this->profiler;
+             }
+        }
+        return null;
     }
 }

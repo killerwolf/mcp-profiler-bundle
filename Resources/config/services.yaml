@@ -5,53 +5,95 @@ services:
         autoconfigure: true
         public: false
 
-    # Make the MCPServerService public
+    # Define ToolAnalyzer service (relies on autowiring for its dependencies)
+    PhpLlm\LlmChain\Chain\ToolBox\ToolAnalyzer: ~
+
+    # Define the SSE Store using the default app cache pool
+    PhpLlm\McpSdk\Server\Transport\Sse\Store\CachePoolStore: # The concrete implementation
+        arguments: ['@cache.app'] # Inject default cache pool
+
+    # Alias the interface to the concrete implementation for autowiring
+    PhpLlm\McpSdk\Server\Transport\Sse\Store: # The interface
+        alias: PhpLlm\McpSdk\Server\Transport\Sse\Store\CachePoolStore # Points to the service above
+
+    # Define the main MCP Server Service
     Killerwolf\MCPProfilerBundle\Service\MCPServerService:
         arguments:
-            - '@parameter_bag'
-        public: true
+            $toolAnalyzer: '@PhpLlm\LlmChain\Chain\ToolBox\ToolAnalyzer'
+            $tools: !tagged_iterator mcp_server.tool
+            $params: '@parameter_bag'
+            $logger: '@?logger'
+        public: true # Keep public as it's aliased and used by command
 
     # Alias for the MCPServerService
     mcp_server:
         alias: Killerwolf\MCPProfilerBundle\Service\MCPServerService
-        public: true
-        
+        public: true # Keep public as it's used by command
+
     # Command for running the MCP server
     Killerwolf\MCPProfilerBundle\Command\RunMCPServerCommand:
         arguments:
-            - '@mcp_server'
+            - '@mcp_server' # Inject the service alias
         tags:
             - { name: 'console.command' }
-            
-    # Register the new ProfilerCommand
+
+    # Command for testing profiler access (Seems unrelated to MCP server itself)
     Killerwolf\MCPProfilerBundle\Command\ProfilerCommand:
         arguments:
-            - '@profiler'
+            - '@?profiler' # Optional profiler injection
         tags:
             - { name: 'console.command' }
-            
+
+    # --- Tool Service Definitions ---
+
     Killerwolf\MCPProfilerBundle\Tools\ProfilerList:
         arguments:
             - '@?profiler'
-            - null
-            - '@parameter_bag'
-        public: true
+            - null # Config argument (kept from original)
+            - '@parameter_bag' # Kept, as constructor still accepts it
+        # public: false # Tools likely don't need to be public services
         tags:
             - { name: 'mcp_server.tool' }
-            
+
     Killerwolf\MCPProfilerBundle\Tools\ProfilerGetAllCollectorByToken:
         arguments:
             - '@?profiler'
-            - null
-            - '@parameter_bag'
-        public: true
+            - null # Config argument
+        # public: false
         tags:
             - { name: 'mcp_server.tool' }
 
     Killerwolf\MCPProfilerBundle\Tools\ProfilerGetOneCollectorByToken:
         arguments:
             - '@?profiler'
-            - null
-        public: true
+            - null # Config argument
+        # public: false
         tags:
             - { name: 'mcp_server.tool' }
+
+    Killerwolf\MCPProfilerBundle\Tools\ProfilerGetByTokenTool:
+        arguments:
+            - '@?profiler'
+            - null # Config argument
+            - '@parameter_bag' # Kept, as constructor still accepts it
+        # public: false
+        tags:
+            - { name: 'mcp_server.tool' }
+
+    Killerwolf\MCPProfilerBundle\Tools\ExampleTool:
+        # No constructor arguments needed for the refactored version
+        # public: false
+        tags:
+            - { name: 'mcp_server.tool' }
+
+    # --- Explicit Controller Service Definitions ---
+    # Needed because autoconfigure might not reliably find controllers in vendor/ with path repo
+
+    Killerwolf\MCPProfilerBundle\Controller\MCPMessageController:
+        # Autowiring should still work for constructor arguments (Store, LoggerInterface)
+        # Tag as controller manually
+        tags: ['controller.service_arguments']
+
+    Killerwolf\MCPProfilerBundle\Controller\MCPSseController:
+        # Autowiring should still work for constructor arguments (MCPServerService, Store, UrlGeneratorInterface, LoggerInterface)
+        tags: ['controller.service_arguments']

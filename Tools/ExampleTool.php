@@ -2,16 +2,22 @@
 
 namespace Killerwolf\MCPProfilerBundle\Tools;
 
-use MCP\Server\Tool\Tool;
-use MCP\Server\Tool\Attribute\Tool as ToolAttribute;
-use MCP\Server\Tool\Attribute\Parameter as ParameterAttribute;
+// Remove ToolInterface use
+// Remove Parameter use
+use PhpLlm\LlmChain\Chain\ToolBox\Attribute\AsTool; // Add AsTool attribute
 
-#[ToolAttribute('example', 'An example tool showing basic functionality')]
-class ExampleTool extends Tool {
-    protected function doExecute(
-        #[ParameterAttribute('input', type: 'string', description: 'Text to echo back')]
-        array $arguments
-    ): array {
-        return $this->text("You said: " . $arguments['input']);
+#[AsTool(
+    name: 'example',
+    description: 'An example tool showing basic functionality',
+    method: 'execute' // Point to the execute method
+)]
+class ExampleTool { // Remove implements ToolInterface
+
+    // Remove getName, getDescription, getParameters methods
+
+    // Add type hint for the input parameter
+    public function execute(string $input): string
+    {
+        return "You said: " . $input;
     }
 }

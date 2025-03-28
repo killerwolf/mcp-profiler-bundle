@@ -2,7 +2,6 @@
 
 namespace Killerwolf\MCPProfilerBundle;
 
-use Killerwolf\MCPProfilerBundle\DependencyInjection\Compiler\TaggedServicesPass;
 use Killerwolf\MCPProfilerBundle\DependencyInjection\MCPProfilerExtension;
 use Symfony\Component\DependencyInjection\ContainerBuilder;
 use Symfony\Component\HttpKernel\Bundle\Bundle;
@@ -13,8 +12,7 @@ class MCPProfilerBundle extends Bundle
     {
         parent::build($container);
         
-        // Register the compiler pass to collect tagged services
-        $container->addCompilerPass(new TaggedServicesPass());
+        // Compiler pass removed as tools are now injected via !tagged_iterator in services.yaml
     }
     
     /**
