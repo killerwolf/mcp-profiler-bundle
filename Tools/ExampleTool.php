@@ -2,36 +2,22 @@
 
 namespace Killerwolf\MCPProfilerBundle\Tools;
 
-use PhpLlm\Mcp\Sdk\Contracts\ToolInterface;
-use PhpLlm\Mcp\Sdk\Data\Parameter; // Assuming Parameter class for definition
+// Remove ToolInterface use
+// Remove Parameter use
+use PhpLlm\LlmChain\Chain\ToolBox\Attribute\AsTool; // Add AsTool attribute
 
-class ExampleTool implements ToolInterface {
+#[AsTool(
+    name: 'example',
+    description: 'An example tool showing basic functionality',
+    method: 'execute' // Point to the execute method
+)]
+class ExampleTool { // Remove implements ToolInterface
 
-    // --- ToolInterface Methods ---
+    // Remove getName, getDescription, getParameters methods
 
-    public function getName(): string
+    // Add type hint for the input parameter
+    public function execute(string $input): string
     {
-        return 'example';
-    }
-
-    public function getDescription(): string
-    {
-        return 'An example tool showing basic functionality';
-    }
-
-    public function getParameters(): array
-    {
-        return [
-            new Parameter('input', Parameter::TYPE_STRING, 'Text to echo back', true), // Required
-        ];
-    }
-
-    public function execute(array $arguments): string
-    {
-        $input = $arguments['input'] ?? null;
-        if ($input === null) {
-             return json_encode(['error' => 'Missing required parameter: input']);
-        }
         return "You said: " . $input;
     }
 }

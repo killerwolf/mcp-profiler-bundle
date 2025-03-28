@@ -2,140 +2,144 @@
 
 namespace Killerwolf\MCPProfilerBundle\Service;
 
-use PhpLlm\Mcp\Sdk\Server;
-use PhpLlm\Mcp\Sdk\Transport\StdioTransport;
-use PhpLlm\Mcp\Sdk\Contracts\ToolInterface; // Assuming interface name
-// Removed: use MCP\Server\Tool\ToolRegistry;
-use PhpLlm\Mcp\Sdk\Contracts\ResourceInterface; // Assuming interface name
-// Removed: use MCP\Server\Resource\ResourceRegistry;
-// Removed: use MCP\Server\Capability\ToolsCapability;
-// Removed: use MCP\Server\Capability\ResourcesCapability;
+// SDK Components
+use PhpLlm\McpSdk\Server;
+use PhpLlm\McpSdk\Server\JsonRpcHandler;
+use PhpLlm\McpSdk\Server\Transport; // Keep interface import
+use PhpLlm\McpSdk\Server\Transport\Stdio\SymfonyConsoleTransport; // Correct path and class name
+use PhpLlm\McpSdk\Message\Factory as MessageFactory; // Alias Factory
+use PhpLlm\McpSdk\Server\RequestHandler\InitializeHandler;
+use PhpLlm\McpSdk\Server\RequestHandler\PingHandler;
+use PhpLlm\McpSdk\Server\RequestHandler\ToolCallHandler;
+use PhpLlm\McpSdk\Server\RequestHandler\ToolListHandler;
+
+// LLM Chain Components
+use PhpLlm\LlmChain\Chain\ToolBox\ToolBox;
+use PhpLlm\LlmChain\Chain\ToolBox\ToolBoxInterface;
+use PhpLlm\LlmChain\Chain\ToolBox\ToolAnalyzer;
+
+// Symfony & PSR Components
+use Symfony\Component\Console\Input\InputInterface;   // Add InputInterface
+use Symfony\Component\Console\Output\OutputInterface; // Add OutputInterface
 use Symfony\Component\DependencyInjection\ParameterBag\ParameterBagInterface;
+use Psr\Log\LoggerInterface;
+use Psr\Log\NullLogger;
 
 class MCPServerService
 {
     private ?Server $server = null;
     private ParameterBagInterface $params;
-    // private ToolRegistry $toolRegistry; // Removed
-    // private ResourceRegistry $resourceRegistry; // Removed
-    private array $registeredTools = [];
-    private array $registeredResources = [];
+    private ToolBoxInterface $toolBox; // Use ToolBoxInterface
+    private LoggerInterface $logger;
+    private iterable $tools; // Store tools passed from DI
 
-    public function __construct(ParameterBagInterface $params)
-    {
+    // Inject ToolAnalyzer, iterable tools, params, and logger
+    public function __construct(
+        ToolAnalyzer $toolAnalyzer,
+        iterable $tools, // Tools collected via tag
+        ParameterBagInterface $params,
+        ?LoggerInterface $logger = null
+    ) {
         $this->params = $params;
+        $this->logger = $logger ?? new NullLogger();
+        $this->tools = $tools; // Store tools
+
+        // Instantiate ToolBox here or ensure it's injected if preferred
+        // For simplicity here, instantiate it directly
+        $this->toolBox = new ToolBox($toolAnalyzer, $this->tools, $this->logger);
     }
 
     public function initialize(?array $config = null)
     {
-        if ($config === null) {
-            // Try to get config from Symfony parameters
-            $config = [
-                'name' => $this->params->get('mcp_profiler.name', 'MCP Server'),
-                'version' => $this->params->get('mcp_profiler.version', '1.0.0'),
-            ];
-        }
+        // Get server name/version from params (used by InitializeHandler)
+        $serverName = $config['name'] ?? $this->params->get('mcp_profiler.name', 'MCP Server');
+        $serverVersion = $config['version'] ?? $this->params->get('mcp_profiler.version', '1.0.0');
 
-        // Create server instance
-        $this->server = new Server($config['name'], $config['version']);
+        // 1. Instantiate Handlers
+        $requestHandlers = [
+            new InitializeHandler($serverName, $serverVersion),
+            new PingHandler(),
+            new ToolCallHandler($this->toolBox), // Pass ToolBox
+            new ToolListHandler($this->toolBox), // Pass ToolBox
+        ];
+        $notificationHandlers = []; // Add notification handlers if any
 
-        // Set up signal handling
+        // 2. Instantiate Message Factory
+        $messageFactory = new MessageFactory();
+
+        // 3. Instantiate JsonRpcHandler
+        $jsonRpcHandler = new JsonRpcHandler(
+            $messageFactory,
+            $requestHandlers,
+            $notificationHandlers,
+            $this->logger
+        );
+
+        // 4. Instantiate Server
+        // Note: The new Server constructor only takes JsonRpcHandler and Logger
+        $this->server = new Server($jsonRpcHandler, $this->logger);
+
+        // 5. Set up signal handling (remains the same)
         $this->setupSignalHandling();
 
         return $this;
     }
 
-    /**
-     * Set tools from tagged services
-     * 
-     * @param ToolInterface[] $tools Array of tool service instances
-     */
-    public function setTools(array $tools)
-    {
-        $this->registeredTools = $tools;
-        return $this;
-    }
+    // Remove setTools, setResources, registerTools, registerResources methods
 
-    /**
-     * Set resources from tagged services
-     * 
-     * @param ResourceInterface[] $resources Array of resource service instances
-     */
-    public function setResources(array $resources)
-    {
-        $this->registeredResources = $resources;
-        return $this;
-    }
-
-    /**
-     * Register tools from tagged services
-     */
-    public function registerTools()
-    {
-        // Register tools from tagged services
-        foreach ($this->registeredTools as $tool) {
-            // Assuming the new Server class has an addTool method
-            if ($this->server && $tool instanceof ToolInterface) {
-                $this->server->addTool($tool);
-            }
-        }
-        return $this;
-    }
-
-    /**
-     * Register resources from tagged services
-     */
-    public function registerResources()
-    {
-        // Register resources from tagged services
-        foreach ($this->registeredResources as $resource) {
-            // Assuming the new Server class has an addResource method
-            if ($this->server && $resource instanceof ResourceInterface) {
-                $this->server->addResource($resource);
-            }
-        }
-        return $this;
-    }
-
-    public function run(bool $blocking = true)
+    // Accept InputInterface and OutputInterface
+    public function run(InputInterface $input, OutputInterface $output)
     {
         if (!$this->server) {
             throw new \RuntimeException('Server not initialized. Call initialize() first.');
         }
 
-        $this->server->connect(new StdioTransport());
-        
-        if ($blocking) {
-            $this->server->run();
-        } else {
-            // Non-blocking mode for Symfony integration
-            // You might need to implement a custom transport or event loop integration here
-        }
+        // The connect method now contains the run loop
+        // Pass input and output to the transport constructor
+        $this->server->connect(new SymfonyConsoleTransport($input, $output));
+
+        // The old run() call is removed as connect() handles the loop.
+        // The blocking parameter might need reconsideration based on how connect behaves.
 
         return $this;
     }
 
     public function shutdown()
     {
-        if ($this->server) {
-            $this->server->shutdown();
-        }
+        // The new Server doesn't have a shutdown method.
+        // Signal handling should exit the process, which implicitly stops the server.
+        // Commenting out the old call.
+        // if ($this->server) {
+        //     $this->server->shutdown();
+        // }
+        $this->logger->info('Shutdown requested (handled by process exit).');
     }
 
     private function setupSignalHandling()
     {
         if (function_exists('pcntl_signal')) {
             pcntl_signal(SIGINT, function() {
-                $this->shutdown();
+                $this->logger->info('SIGINT received, shutting down...');
+                // No explicit server shutdown needed, just exit.
                 exit(0);
             });
-        } else if (function_exists('sapi_windows_set_ctrl_handler')) {
+            pcntl_signal(SIGTERM, function() {
+                 $this->logger->info('SIGTERM received, shutting down...');
+                 exit(0);
+             });
+        }
+        // Windows handling might need review if sapi_windows_set_ctrl_handler
+        // relied on the old shutdown method. For now, keep it similar.
+        elseif (function_exists('sapi_windows_set_ctrl_handler')) {
             sapi_windows_set_ctrl_handler(function() {
-                $this->shutdown();
+                 $this->logger->info('CTRL event received, shutting down...');
+                 // Attempting graceful exit might be complex here without explicit shutdown
+                 exit(0); // Or handle differently if needed
             });
         }
     }
 
+    // getServer might be less useful now, or return null if not initialized
     public function getServer(): ?Server
     {
         return $this->server;

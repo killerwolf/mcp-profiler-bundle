@@ -2,47 +2,30 @@
 
 namespace Killerwolf\MCPProfilerBundle\Tools;
 
-use PhpLlm\Mcp\Sdk\Contracts\ToolInterface;
-use PhpLlm\Mcp\Sdk\Data\Parameter; // Assuming Parameter class for definition
+// Remove ToolInterface use
+// Remove Parameter use
+use PhpLlm\LlmChain\Chain\ToolBox\Attribute\AsTool; // Add AsTool attribute
 use Symfony\Component\HttpKernel\Profiler\Profiler;
 
-class ProfilerGetAllCollectorByToken implements ToolInterface {
+#[AsTool(
+    name: 'profiler_get_all_collector_by_token',
+    description: 'List all available profiler collectors for a given token',
+    method: 'execute' // Point to the execute method
+)]
+class ProfilerGetAllCollectorByToken { // Remove implements ToolInterface
     private ?Profiler $profiler = null;
 
     // Inject the Profiler service
     public function __construct(Profiler $profiler, ?array $config = null)
     {
-        // parent::__construct($config ?? []); // Removed
         $this->profiler = $profiler;
     }
 
-    // --- ToolInterface Methods ---
+    // Remove getName, getDescription, getParameters methods
 
-    public function getName(): string
+    // Add type hint for the token parameter
+    public function execute(string $token): string
     {
-        return 'profiler_get_all_collector_by_token';
-    }
-
-    public function getDescription(): string
-    {
-        return 'List all available profiler collectors for a given token';
-    }
-
-    public function getParameters(): array
-    {
-        return [
-            new Parameter('token', Parameter::TYPE_STRING, 'The profiler token', true),
-        ];
-    }
-
-    public function execute(array $arguments): string
-    {
-        $token = $arguments['token'] ?? null;
-
-        if (!$token) {
-            return json_encode(['error' => 'Missing required parameter: token']);
-        }
-
         if (!$this->profiler) {
              return json_encode(['error' => 'Profiler service not available.']);
         }

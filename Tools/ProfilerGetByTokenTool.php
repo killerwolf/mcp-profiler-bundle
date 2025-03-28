@@ -2,18 +2,23 @@
 
 namespace Killerwolf\MCPProfilerBundle\Tools;
 
-use PhpLlm\Mcp\Sdk\Contracts\ToolInterface;
-use PhpLlm\Mcp\Sdk\Data\Parameter; // Assuming Parameter class for definition
+// Remove ToolInterface use
+// Remove Parameter use
+use PhpLlm\LlmChain\Chain\ToolBox\Attribute\AsTool; // Add AsTool attribute
 use Symfony\Component\HttpKernel\Profiler\Profiler;
-use Symfony\Component\DependencyInjection\ContainerInterface; // Keep for getProfiler logic
+use Symfony\Component\DependencyInjection\ContainerInterface;
 use Symfony\Component\DependencyInjection\ParameterBag\ParameterBagInterface;
 
-class ProfilerGetByTokenTool implements ToolInterface {
+#[AsTool(
+    name: 'profiler_get_by_token',
+    description: 'Access Symfony profiler data by token',
+    method: 'execute' // Point to the execute method
+)]
+class ProfilerGetByTokenTool { // Remove implements ToolInterface
     private ?Profiler $profiler = null;
-    private static ?ContainerInterface $container = null; // Keep for getProfiler logic
+    private static ?ContainerInterface $container = null;
     private ?ParameterBagInterface $parameterBag = null;
 
-    // Constructor remains largely the same, just removing parent calls
     public function __construct($profilerOrConfig = null, ?array $config = null, ?ParameterBagInterface $parameterBag = null)
     {
         if ($profilerOrConfig instanceof Profiler) {
@@ -26,33 +31,12 @@ class ProfilerGetByTokenTool implements ToolInterface {
         $this->parameterBag = $parameterBag;
     }
 
-    // --- ToolInterface Methods ---
+    // Remove getName, getDescription, getParameters methods
 
-    public function getName(): string
+    // Add type hint for the token parameter
+    public function execute(string $token): string
     {
-        return 'profiler_get_by_token';
-    }
-
-    public function getDescription(): string
-    {
-        return 'Access Symfony profiler data by token';
-    }
-
-    public function getParameters(): array
-    {
-        return [
-            new Parameter('token', Parameter::TYPE_STRING, 'The profiler token to retrieve data for', true), // Required
-        ];
-    }
-
-    public function execute(array $arguments): string
-    {
-        $token = $arguments['token'] ?? null;
-        if (!$token) {
-             return json_encode(['error' => 'Missing required parameter: token']);
-        }
-
-        // Ensure profiler is available (using the existing getProfiler method)
+        // Ensure profiler is available
         $profiler = $this->getProfiler();
         if (!$profiler) {
             return json_encode(['error' => 'Profiler service not available.']);
@@ -83,23 +67,19 @@ class ProfilerGetByTokenTool implements ToolInterface {
         // Get all collectors from the profile
         $collectors = $profile->getCollectors();
 
-        // Add collector data
+        // Add collector data (Keep the existing complex logic for handling different collectors)
         foreach ($collectors as $collector) {
             $collectorName = $collector->getName();
             
-            // Different handling based on collector type
             if (method_exists($collector, 'getData')) {
-                // Standard case - collector has getData() method
                 try {
                     $collectorData = $collector->getData();
-                    // Attempt to JSON encode to catch unserializable data early
                     json_encode($collectorData); 
                     $data['collectors'][$collectorName] = $collectorData;
                 } catch (\Exception $e) {
                      $data['collectors'][$collectorName] = ['error' => 'Could not serialize data: ' . $e->getMessage()];
                 }
             } elseif ($collector instanceof \Symfony\Component\HttpKernel\DataCollector\RequestDataCollector) {
-                // Special handling for RequestDataCollector (ensure data is serializable)
                  try {
                     $requestData = [
                         'method' => $collector->getMethod(),
@@ -114,39 +94,29 @@ class ProfilerGetByTokenTool implements ToolInterface {
                         'status_code' => $collector->getStatusCode(),
                         'status_text' => $collector->getStatusText(),
                     ];
-                    json_encode($requestData); // Test serializability
+                    json_encode($requestData); 
                     $data['collectors'][$collectorName] = $requestData;
                  } catch (\Exception $e) {
                      $data['collectors'][$collectorName] = ['error' => 'Could not serialize RequestDataCollector: ' . $e->getMessage()];
                  }
             } else {
-                // Fallback for other collectors - try to extract data using reflection
                 try {
                     $reflectionClass = new \ReflectionClass($collector);
                     $collectorData = [];
-                    
-                    // Try to get public properties
                     foreach ($reflectionClass->getProperties(\ReflectionProperty::IS_PUBLIC) as $property) {
                         if (!$property->isStatic()) {
                             $propertyName = $property->getName();
                             $value = $property->getValue($collector);
-                            // Check if value is serializable before adding
                             json_encode($value); 
                             $collectorData[$propertyName] = $value;
                         }
                     }
-                    
-                    // Try to get data property if it exists
                     if ($reflectionClass->hasProperty('data')) {
                         $dataProperty = $reflectionClass->getProperty('data');
-                        // $dataProperty->setAccessible(true); // Deprecated
                         $dataValue = $dataProperty->getValue($collector);
-                        
-                        // Handle Symfony VarDumper Data objects
                         if ($dataValue instanceof \Symfony\Component\VarDumper\Cloner\Data) {
                             $collectorData['data_object'] = 'Symfony VarDumper Data object (not directly serializable)';
                         } else {
-                             // Check serializability before merging/adding
                              json_encode($dataValue);
                              if (is_array($dataValue)) {
                                  $collectorData = array_merge($collectorData, $dataValue);
@@ -155,10 +125,8 @@ class ProfilerGetByTokenTool implements ToolInterface {
                              }
                         }
                     }
-                    
                     $data['collectors'][$collectorName] = $collectorData;
                 } catch (\Exception $e) {
-                    // If reflection or serialization fails, store the error
                     $data['collectors'][$collectorName] = ['error' => 'Could not extract or serialize data: ' . $e->getMessage()];
                 }
             }
@@ -166,18 +134,19 @@ class ProfilerGetByTokenTool implements ToolInterface {
         
         // Return JSON string
         try {
-             return json_encode($data, JSON_PRETTY_PRINT | JSON_INVALID_UTF8_SUBSTITUTE); // Add flag for potential UTF8 issues
+             return json_encode($data, JSON_PRETTY_PRINT | JSON_INVALID_UTF8_SUBSTITUTE);
         } catch (\Exception $e) {
              return json_encode(['error' => 'Failed to encode final data: ' . $e->getMessage()]);
         }
     }
 
-    // Keep the getProfiler method as it was in ProfilerList (assuming it's needed and correct)
+    // --- Helper methods remain the same ---
     /**
      * Get the profiler instance
      */
     private function getProfiler(): ?Profiler
     {
+        // ... (keep existing implementation) ...
         if ($this->profiler !== null) {
             return $this->profiler;
         }

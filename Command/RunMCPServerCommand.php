@@ -30,11 +30,12 @@ class RunMCPServerCommand extends Command
     protected function execute(InputInterface $input, OutputInterface $output): int
     {
         try {
+            // Pass input and output to the run method
             $this->mcpServerService
                 ->initialize()
-                ->registerTools()
-                ->registerResources()
-                ->run();
+                // ->registerTools() // Removed in service
+                // ->registerResources() // Removed in service
+                ->run($input, $output); // Pass input and output
             return Command::SUCCESS;
         } catch (\Exception $e) {
             $io = new SymfonyStyle($input, $output);

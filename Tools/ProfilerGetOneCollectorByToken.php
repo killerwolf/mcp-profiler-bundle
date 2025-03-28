@@ -2,52 +2,33 @@
 
 namespace Killerwolf\MCPProfilerBundle\Tools;
 
-use PhpLlm\Mcp\Sdk\Contracts\ToolInterface;
-use PhpLlm\Mcp\Sdk\Data\Parameter; // Assuming Parameter class for definition
+// Remove ToolInterface use
+// Remove Parameter use
+use PhpLlm\LlmChain\Chain\ToolBox\Attribute\AsTool; // Add AsTool attribute
 use Symfony\Component\HttpKernel\Profiler\Profiler;
 use Symfony\Component\VarDumper\VarDumper;
 use Symfony\Component\VarDumper\Cloner\VarCloner;
 use Symfony\Component\VarDumper\Dumper\CliDumper;
 
-class ProfilerGetOneCollectorByToken implements ToolInterface {
+#[AsTool(
+    name: 'profiler_get_one_collector_by_token',
+    description: 'Get data for a specific profiler collector by token',
+    method: 'execute' // Point to the execute method
+)]
+class ProfilerGetOneCollectorByToken { // Remove implements ToolInterface
     private ?Profiler $profiler = null;
 
     // Inject the Profiler service
     public function __construct(Profiler $profiler, ?array $config = null)
     {
-        // parent::__construct($config ?? []); // Removed
         $this->profiler = $profiler;
     }
 
-    // --- ToolInterface Methods ---
+    // Remove getName, getDescription, getParameters methods
 
-    public function getName(): string
+    // Add type hints for parameters
+    public function execute(string $token, string $collectorName): string
     {
-        return 'profiler_get_one_collector_by_token';
-    }
-
-    public function getDescription(): string
-    {
-        return 'Get data for a specific profiler collector by token';
-    }
-
-    public function getParameters(): array
-    {
-        return [
-            new Parameter('token', Parameter::TYPE_STRING, 'The profiler token (e.g., 8b7fa2)', true),
-            new Parameter('collector_name', Parameter::TYPE_STRING, 'The name of the collector (e.g., request, doctrine, logs)', true),
-        ];
-    }
-
-    public function execute(array $arguments): string
-    {
-        $token = $arguments['token'] ?? null;
-        $collectorName = $arguments['collector_name'] ?? null;
-
-        if (!$token || !$collectorName) {
-            return json_encode(['error' => 'Missing required parameter(s): token and/or collector_name']);
-        }
-
         if (!$this->profiler) {
              return json_encode(['error' => 'Profiler service not available.']);
         }
@@ -75,38 +56,32 @@ class ProfilerGetOneCollectorByToken implements ToolInterface {
              return json_encode(['error' => "Error getting collector '{$collectorName}': " . $e->getMessage()]);
         }
 
-        // Retrieve collector data
+        // Retrieve collector data (Keep existing logic)
         $data = null;
         $dumpedData = null;
 
         if (method_exists($collector, 'getData')) {
             try {
                 $data = $collector->getData();
-                // Attempt to JSON encode to check serializability
                 json_encode($data);
             } catch (\Exception $e) {
-                // If getData() exists but fails or returns unserializable data, try dumping
                 $dumpedData = $this->dumpData($collector);
-                $data = null; // Ensure data is null if encoding failed
+                $data = null; 
             }
          } else {
-             // Fallback: Try to represent the collector state if getData isn't available
              $dumpedData = $this->dumpData($collector);
          }
 
-         // Return JSON if possible, otherwise return the dump
          if ($data !== null) {
              try {
                  return json_encode($data, JSON_PRETTY_PRINT | JSON_INVALID_UTF8_SUBSTITUTE);
              } catch (\Exception $e) {
-                 // JSON encoding failed, fallback to dump
-                 $dumpedData = $this->dumpData($data); // Dump the data that failed to encode
+                 $dumpedData = $this->dumpData($data); 
                  return "Collector '{$collectorName}' data (JSON failed, dumped):\n" . $dumpedData;
              }
          } elseif ($dumpedData !== null) {
              return "Collector '{$collectorName}' data (dumped):\n" . $dumpedData;
          } else {
-             // Should not happen if dumpData works, but as a safeguard
              return json_encode(['error' => "Could not retrieve or represent data for collector '{$collectorName}'."]);
          }
     }
@@ -119,7 +94,6 @@ class ProfilerGetOneCollectorByToken implements ToolInterface {
         try {
             $cloner = new VarCloner();
             $dumper = new CliDumper();
-            // Configure dumper to return the output as a string
             $output = fopen('php://memory', 'r+');
             $dumper->dump($cloner->cloneVar($variable), $output);
             rewind($output);
