@@ -1,11 +1,11 @@
 # MCP Server Bundle for Symfony
 
-This bundle Symfony MCP Profiler Bundle mimics the WebProfiler Bundle. It bridges the gap between Profiler data and your favorite (MCP enabled) AI-powerd IDE.  
+The Symfony MCP Profiler Bundle mimics the WebProfiler Bundle. It bridges the gap between Profiler data and your favorite MCP-enabled AI-powered IDE.
 
 ## Installation
 
 ```bash
-composer require killerwolf/mcp-profiler-bundle:dev-main james2037/mcp-php-server:@dev 
+composer require killerwolf/mcp-profiler-bundle:dev-main
 ```
 
 ## Configuration
@@ -33,7 +33,13 @@ mcp_server:
 
 ## Built-in Tools
 
-@todo document available tools
+The bundle provides several tools for interacting with the Symfony Profiler:
+
+- **profiler_list**: Lists recent profiler entries
+- **profiler_get_by_token**: Gets a specific profiler entry by token
+- **profiler_get_all_collector_by_token**: Gets all collectors for a specific profiler entry
+- **profiler_get_one_collector_by_token**: Gets a specific collector for a profiler entry
+- **example_tool**: A simple example tool for demonstration purposes
 
 
 ## Commands
@@ -46,20 +52,15 @@ The bundle provides the following commands:
 {
   "mcpServers": {
     "symfony-mcp": {
-      "command": "/Volumes/Work/git/symfony-demo/vendor/killerwolf/mcp-server-bundle/bin/run-mcp.sh",
+      "command": "/path/to/your/project/vendor/killerwolf/mcp-profiler-bundle/bin/run-mcp.sh",
       "env": {
-        "BASE": "/Volumes/Work/git/symfony-demo"
-      },
-      "alwaysAllow": [
-        "profiler_list",
-        "profiler_get_all_collector_by_token",
-        "profiler_get_one_collector_by_token"
-      ]
+        "BASE": "/path/to/your/project"
+      }
     }
   }
 }
 ```
-PS: `command` is the absolut path to the `run-mcp.sh` script, and `BASE` is the environment variables providing the base path to your symfony project.
+**Note**: `command` is the absolute path to the `run-mcp.sh` script, and `BASE` is the environment variable providing the base path to your Symfony project. The script uses this path to locate your Symfony console and create log directories.
 
 ### Using the MCP Inspector
 
@@ -71,7 +72,9 @@ npx --registry https://registry.npmjs.org @modelcontextprotocol/inspector
 
 @add image of the Inspector with the example usage
 
-### Interacting with the Symfony Profiler (for learning/debug puposes, not used by the MCP Server)
+### Interacting with the Symfony Profiler (for learning/debug purposes)
+
+The bundle also provides a command-line interface for interacting with the Symfony Profiler directly:
 
 ```bash
 # List recent profiler entries
@@ -84,3 +87,14 @@ bin/console mcp:profiler show <token> --collector=request
 # Purge profiler data
 bin/console mcp:profiler purge
 ```
+
+## How It Works
+
+The bundle implements the MCP protocol directly, handling JSON-RPC requests and responses according to the specification. It exposes Symfony Profiler data through a set of tools that can be called by MCP clients (like AI assistants in your IDE).
+
+The implementation includes:
+
+1. A command that runs the MCP server (`mcp:server:run`)
+2. A service that manages the server lifecycle
+3. Tool classes that implement specific functionality
+4. Integration with Symfony's dependency injection system
