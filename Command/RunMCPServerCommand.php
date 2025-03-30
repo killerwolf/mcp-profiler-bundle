@@ -2,10 +2,17 @@
 
 namespace Killerwolf\MCPProfilerBundle\Command;
 
+use Killerwolf\MCPProfilerBundle\Tools\ExampleTool;
+use Killerwolf\MCPProfilerBundle\Tools\ProfilerGetAllCollectorByToken;
+use Killerwolf\MCPProfilerBundle\Tools\ProfilerGetByTokenTool;
+use Killerwolf\MCPProfilerBundle\Tools\ProfilerGetOneCollectorByToken;
+use Killerwolf\MCPProfilerBundle\Tools\ProfilerList;
 use Symfony\Component\Console\Attribute\AsCommand;
 use Symfony\Component\Console\Command\Command;
 use Symfony\Component\Console\Input\InputInterface;
 use Symfony\Component\Console\Output\OutputInterface;
+use Symfony\Component\DependencyInjection\ParameterBag\ParameterBagInterface;
+use Symfony\Component\HttpKernel\Profiler\Profiler;
 
 #[AsCommand(
     name: 'mcp:server:run',
@@ -14,12 +21,15 @@ use Symfony\Component\Console\Output\OutputInterface;
 class RunMCPServerCommand extends Command
 {
     private const APP_VERSION = '1.0.0';
-    private iterable $tools;
+    private ?Profiler $profiler;
+    private ParameterBagInterface $parameterBag;
 
-    public function __construct(iterable $tools)
+    // Inject dependencies needed by the tools
+    public function __construct(?Profiler $profiler, ParameterBagInterface $parameterBag)
     {
         parent::__construct();
-        $this->tools = $tools;
+        $this->profiler = $profiler;
+        $this->parameterBag = $parameterBag;
     }
 
     protected function execute(InputInterface $input, OutputInterface $output): int
@@ -30,7 +40,6 @@ class RunMCPServerCommand extends Command
             $line = fgets(STDIN);
             if (false === $line) {
                 usleep(1000);
-
                 continue;
             }
             $buffer .= $line;
@@ -38,26 +47,28 @@ class RunMCPServerCommand extends Command
                 $lines = explode("\n", $buffer);
                 $buffer = array_pop($lines);
                 foreach ($lines as $line) {
+                    if (empty(trim($line))) continue; // Skip empty lines
                     $this->processLine($output, $line);
                 }
             }
         }
 
+        // This is unreachable due to the infinite loop, but kept for structure
+        // @codeCoverageIgnoreStart
         return Command::SUCCESS;
+        // @codeCoverageIgnoreEnd
     }
 
     private function processLine(OutputInterface $output, string $line): void
     {
         try {
             $payload = json_decode($line, true, JSON_THROW_ON_ERROR);
-
             $method = $payload['method'] ?? null;
 
             $response = match ($method) {
-                // protocols
                 'initialize' => $this->sendInitialize(),
                 'tools/list' => $this->sendToolsList(),
-                'tools/call' => $this->callTool($payload['params']),
+                'tools/call' => $this->callTool($payload['params'] ?? []), // Ensure params exist
                 'notifications/initialized' => null,
                 default => $this->sendProtocolError(\sprintf('Method "%s" not found', $method)),
             };
@@ -72,7 +83,8 @@ class RunMCPServerCommand extends Command
         $response['id'] = $payload['id'] ?? 0;
         $response['jsonrpc'] = '2.0';
 
-        $output->writeln(json_encode($response));
+        // Use JSON_UNESCAPED_SLASHES | JSON_UNESCAPED_UNICODE for cleaner output
+        $output->writeln(json_encode($response, JSON_UNESCAPED_SLASHES | JSON_UNESCAPED_UNICODE));
     }
 
     private function sendInitialize(): array
@@ -82,159 +94,102 @@ class RunMCPServerCommand extends Command
                 'protocolVersion' => '2024-11-05',
                 'capabilities' => [
                     'tools' => [
-                        'listChanged' => true,
+                        'listChanged' => true, // Keep true as list is static but client might expect it
                     ],
                 ],
                 'serverInfo' => [
-                    'name' => 'Symfony MCP Profiler Bundle',
+                    'name' => 'Symfony MCP Profiler Bundle (Static)', // Updated name
                     'version' => self::APP_VERSION,
                 ],
             ],
         ];
     }
 
+    // Hardcoded tool list based on original services.yaml
     private function sendToolsList(): array
     {
-        $toolsData = [];
-        
-        foreach ($this->tools as $tool) {
-            // Get tool metadata using reflection
-            $reflectionClass = new \ReflectionClass($tool);
-            $attributes = $reflectionClass->getAttributes();
-            
-            $toolName = null;
-            $toolDescription = null;
-            $inputSchema = null;
-            
-            // Look for tool attributes or method attributes
-            foreach ($attributes as $attribute) {
-                $attributeName = $attribute->getName();
-                if (str_ends_with($attributeName, 'AsTool')) {
-                    $attributeInstance = $attribute->newInstance();
-                    $toolName = $attributeInstance->name ?? null;
-                    $toolDescription = $attributeInstance->description ?? null;
-                    break;
-                }
-            }
-            
-            // If no tool name found, skip this tool
-            if (!$toolName) {
-                continue;
-            }
-            
-            // Build basic schema based on execute method parameters
-            if (method_exists($tool, 'execute')) {
-                $method = $reflectionClass->getMethod('execute');
-                $parameters = $method->getParameters();
-                
-                $properties = [];
-                $required = [];
-                
-                foreach ($parameters as $parameter) {
-                    $paramName = $parameter->getName();
-                    $properties[$paramName] = [];
-                    
-                    // Get parameter type
-                    $type = $parameter->getType();
-                    if ($type) {
-                        $typeName = $type->getName();
-                        switch ($typeName) {
-                            case 'int':
-                            case 'integer':
-                                $properties[$paramName]['type'] = 'integer';
-                                break;
-                            case 'float':
-                            case 'double':
-                                $properties[$paramName]['type'] = 'number';
-                                break;
-                            case 'bool':
-                            case 'boolean':
-                                $properties[$paramName]['type'] = 'boolean';
-                                break;
-                            case 'array':
-                                $properties[$paramName]['type'] = 'array';
-                                break;
-                            default:
-                                $properties[$paramName]['type'] = 'string';
-                        }
-                    } else {
-                        $properties[$paramName]['type'] = 'string';
-                    }
-                    
-                    // Check if parameter has default value
-                    if (!$parameter->isOptional()) {
-                        $required[] = $paramName;
-                    } else if ($parameter->isDefaultValueAvailable()) {
-                        $properties[$paramName]['default'] = $parameter->getDefaultValue();
-                    }
-                }
-                
-                $inputSchema = [
-                    'type' => 'object',
-                    'properties' => $properties,
-                    '$schema' => 'http://json-schema.org/draft-07/schema#',
-                ];
-                
-                if (!empty($required)) {
-                    $inputSchema['required'] = $required;
-                }
-            }
-            
-            $toolsData[] = [
-                'name' => $toolName,
-                'description' => $toolDescription ?: 'No description available',
-                'inputSchema' => $inputSchema ?: [
-                    'type' => 'object',
-                    'properties' => [],
-                    '$schema' => 'http://json-schema.org/draft-07/schema#',
-                ],
-            ];
-        }
-        
+        $schemaBase = ['type' => 'object', '$schema' => 'http://json-schema.org/draft-07/schema#'];
+        $tokenInput = [
+            'properties' => ['token' => ['type' => 'string']],
+            'required' => ['token'],
+        ];
+        $tokenCollectorInput = [
+            'properties' => ['token' => ['type' => 'string'], 'collector' => ['type' => 'string']],
+            'required' => ['token', 'collector'],
+        ];
+
         return [
             'result' => [
-                'tools' => $toolsData,
+                'tools' => [
+                    [
+                        'name' => 'profiler:list',
+                        'description' => 'Lists available profiler tokens.',
+                        'inputSchema' => array_merge($schemaBase, ['properties' => ['limit' => ['type' => 'integer', 'default' => 10]]]),
+                    ],
+                    [
+                        'name' => 'profiler:get_collectors',
+                        'description' => 'Gets all collector data for a specific profiler token.',
+                        'inputSchema' => array_merge($schemaBase, $tokenInput),
+                    ],
+                    [
+                        'name' => 'profiler:get_collector',
+                        'description' => 'Gets specific collector data for a specific profiler token.',
+                        'inputSchema' => array_merge($schemaBase, $tokenCollectorInput),
+                    ],
+                    [
+                        'name' => 'profiler:get_by_token',
+                        'description' => 'Gets basic profile data for a specific token.',
+                        'inputSchema' => array_merge($schemaBase, $tokenInput),
+                    ],
+                    [
+                        'name' => 'example:hello',
+                        'description' => 'An example tool that returns a greeting.',
+                        'inputSchema' => array_merge($schemaBase, ['properties' => ['name' => ['type' => 'string', 'default' => 'World']]]),
+                    ],
+                ],
             ],
         ];
     }
 
+    // Manually handle tool calls
     private function callTool(array $params): array
     {
-        $name = $params['name'];
+        $name = $params['name'] ?? null;
         $arguments = $params['arguments'] ?? [];
-        
-        // Find the tool with the matching name
-        $targetTool = null;
-        foreach ($this->tools as $tool) {
-            $reflectionClass = new \ReflectionClass($tool);
-            $attributes = $reflectionClass->getAttributes();
-            
-            foreach ($attributes as $attribute) {
-                $attributeName = $attribute->getName();
-                if (str_ends_with($attributeName, 'AsTool')) {
-                    $attributeInstance = $attribute->newInstance();
-                    if ($attributeInstance->name === $name) {
-                        $targetTool = $tool;
-                        break 2;
-                    }
-                }
-            }
+
+        if (!$this->profiler && $name !== 'example:hello') {
+             return $this->sendApplicationError(new \LogicException('Profiler service is not available.'));
         }
-        
-        if (!$targetTool) {
-            return $this->sendProtocolError(\sprintf('Tool "%s" not found', $name));
-        }
-        
+
         try {
-            // Call the execute method with the provided arguments
-            $result = $targetTool->execute(...array_values($arguments));
-            
+            $result = match ($name) {
+                'profiler:list' => (new ProfilerList($this->profiler, null, $this->parameterBag))->execute(
+                    $arguments['limit'] ?? 10
+                ),
+                'profiler:get_collectors' => (new ProfilerGetAllCollectorByToken($this->profiler, null))->execute(
+                    $arguments['token'] ?? ''
+                ),
+                'profiler:get_collector' => (new ProfilerGetOneCollectorByToken($this->profiler, null))->execute(
+                    $arguments['token'] ?? '',
+                    $arguments['collector'] ?? ''
+                ),
+                 'profiler:get_by_token' => (new ProfilerGetByTokenTool($this->profiler, null, $this->parameterBag))->execute(
+                    $arguments['token'] ?? ''
+                ),
+                default => null, // Will be handled below
+            };
+
+            if ($result === null && $name !== null) {
+                 return $this->sendProtocolError(\sprintf('Tool "%s" not found', $name));
+            }
+
+            // Format successful result
             return [
                 'result' => [
                     'content' => [
                         [
                             'type' => 'text',
-                            'text' => is_string($result) ? $result : json_encode($result, JSON_PRETTY_PRINT),
+                            'text' => is_string($result) ? $result : json_encode($result, JSON_PRETTY_PRINT | JSON_UNESCAPED_SLASHES | JSON_UNESCAPED_UNICODE),
                         ],
                     ],
                 ],
@@ -248,7 +203,7 @@ class RunMCPServerCommand extends Command
     {
         return [
             'error' => [
-                'code' => -32601,
+                'code' => -32601, // Method not found / Invalid Request
                 'message' => $message,
             ],
         ];
@@ -256,10 +211,13 @@ class RunMCPServerCommand extends Command
 
     private function sendApplicationError(\Throwable $e): array
     {
+        // Use a generic error code for application errors
         return [
             'error' => [
-                'code' => -32601,
-                'message' => 'Something gone wrong! ' . $e->getMessage(),
+                'code' => -32000, // Server error
+                'message' => 'Application error: ' . $e->getMessage(),
+                // Optionally include more details in 'data' if needed for debugging
+                // 'data' => ['trace' => $e->getTraceAsString()],
             ],
         ];
     }

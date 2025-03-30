@@ -11,7 +11,8 @@ services:
     # Command for running the MCP server
     Killerwolf\MCPProfilerBundle\Command\RunMCPServerCommand:
         arguments:
-            - !tagged_iterator mcp.tool # Inject tools directly
+            - '@?profiler' # Inject optional profiler service
+            - '@parameter_bag' # Inject parameter bag service
         tags:
             - { name: 'console.command' }
         public: true # Keep public as it's used directly
