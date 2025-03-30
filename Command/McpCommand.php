@@ -8,10 +8,10 @@ use Symfony\Component\Console\Input\InputInterface;
 use Symfony\Component\Console\Output\OutputInterface;
 
 #[AsCommand(
-    name: 'mcp:server:run',
+    name: 'mcp',
     description: 'Starts MCP Profiler service',
 )]
-class RunMCPServerCommand extends Command
+class McpCommand extends Command
 {
     private const APP_VERSION = '1.0.0';
     private iterable $tools;
