@@ -46,7 +46,9 @@ class RunMCPServerCommand extends Command
                 $lines = explode("\n", $buffer);
                 $buffer = array_pop($lines);
                 foreach ($lines as $line) {
-                    if (empty(trim($line))) continue; // Skip empty lines
+                    if (empty(trim($line))) {
+                        continue;
+                    } // Skip empty lines
                     $this->processLine($output, $line);
                 }
             }
@@ -152,7 +154,7 @@ class RunMCPServerCommand extends Command
         $arguments = $params['arguments'] ?? [];
 
         if (!$this->profiler && $name !== 'example:hello') {
-             return $this->sendApplicationError(new \LogicException('Profiler service is not available.'));
+            return $this->sendApplicationError(new \LogicException('Profiler service is not available.'));
         }
 
         try {
@@ -167,14 +169,14 @@ class RunMCPServerCommand extends Command
                     $arguments['token'] ?? '',
                     $arguments['collector'] ?? ''
                 ),
-                 'profiler:get_by_token' => (new ProfilerGetByTokenTool($this->profiler, null, $this->parameterBag))->execute(
+                'profiler:get_by_token' => (new ProfilerGetByTokenTool($this->profiler, null, $this->parameterBag))->execute(
                     $arguments['token'] ?? ''
                 ),
                 default => null, // Will be handled below
             };
 
             if ($result === null && $name !== null) {
-                 return $this->sendProtocolError(\sprintf('Tool "%s" not found', $name));
+                return $this->sendProtocolError(\sprintf('Tool "%s" not found', $name));
             }
 
             // Format successful result

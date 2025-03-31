@@ -1,0 +1,56 @@
+name: PHP CI
+
+on:
+  push:
+    branches: [ main ]
+  pull_request:
+    branches: [ main ]
+
+jobs:
+  build:
+    runs-on: ubuntu-latest
+    strategy:
+      matrix:
+        php-version: ['8.1', '8.2', '8.3', '8.4']
+
+    steps:
+    - uses: actions/checkout@v4
+
+    - name: Setup PHP
+      uses: shivammathur/setup-php@v2
+      with:
+        php-version: ${{ matrix.php-version }}
+        extensions: mbstring, xml, ctype, iconv, pcntl # Add extensions required by the bundle or composer dependencies if known, pcntl is listed in composer.json
+        coverage: none # Set to none, xdebug, or pcov if needed later
+        tools: composer:v2
+      env:
+        COMPOSER_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+
+    - name: Validate composer.json and composer.lock
+      run: composer validate --strict
+
+    - name: Cache Composer packages
+      id: composer-cache
+      uses: actions/cache@v4
+      with:
+        path: vendor
+        key: ${{ runner.os }}-php-${{ matrix.php-version }}-${{ hashFiles('**/composer.lock') }}
+        restore-keys: |
+          ${{ runner.os }}-php-${{ matrix.php-version }}-
+
+    - name: Install Dependencies
+      run: composer install --prefer-dist --no-progress
+
+    - name: Run PHP CS Fixer (Docker)
+      uses: docker://ghcr.io/php-cs-fixer/php-cs-fixer:3-php8.3
+      with:
+        args: fix . --dry-run --diff
+
+    - name: Run PHPStan (Docker)
+      uses: docker://ghcr.io/phpstan/phpstan:2
+      with:
+        args: analyse . -c phpstan.neon --memory-limit=2G
+      continue-on-error: true # Allow the workflow to continue even if PHPStan finds errors
+
+    - name: Run PHPUnit
+      run: vendor/bin/phpunit
