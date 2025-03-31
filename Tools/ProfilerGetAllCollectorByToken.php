@@ -2,26 +2,17 @@
 
 namespace Killerwolf\MCPProfilerBundle\Tools;
 
-// Remove ToolInterface use
-// Remove Parameter use
-use PhpLlm\LlmChain\Chain\ToolBox\Attribute\AsTool; // Add AsTool attribute
 use Symfony\Component\HttpKernel\Profiler\Profiler;
 
-#[AsTool(
-    name: 'profiler_get_all_collector_by_token',
-    description: 'List all available profiler collectors for a given token',
-    method: 'execute' // Point to the execute method
-)]
+
 class ProfilerGetAllCollectorByToken { // Remove implements ToolInterface
     private ?Profiler $profiler = null;
 
     // Inject the Profiler service
-    public function __construct(Profiler $profiler, ?array $config = null)
+    public function __construct(?Profiler $profiler)
     {
         $this->profiler = $profiler;
     }
-
-    // Remove getName, getDescription, getParameters methods
 
     // Add type hint for the token parameter
     public function execute(string $token): string

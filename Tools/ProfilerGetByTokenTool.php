@@ -2,49 +2,32 @@
 
 namespace Killerwolf\MCPProfilerBundle\Tools;
 
-// Remove ToolInterface use
-// Remove Parameter use
-use PhpLlm\LlmChain\Chain\ToolBox\Attribute\AsTool; // Add AsTool attribute
 use Symfony\Component\HttpKernel\Profiler\Profiler;
 use Symfony\Component\DependencyInjection\ContainerInterface;
 use Symfony\Component\DependencyInjection\ParameterBag\ParameterBagInterface;
 
-#[AsTool(
-    name: 'profiler_get_by_token',
-    description: 'Access Symfony profiler data by token',
-    method: 'execute' // Point to the execute method
-)]
 class ProfilerGetByTokenTool { // Remove implements ToolInterface
     private ?Profiler $profiler = null;
-    private static ?ContainerInterface $container = null;
     private ?ParameterBagInterface $parameterBag = null;
 
-    public function __construct($profilerOrConfig = null, ?array $config = null, ?ParameterBagInterface $parameterBag = null)
+    public function __construct(?Profiler $profiler = null, ?ParameterBagInterface $parameterBag = null)
     {
-        if ($profilerOrConfig instanceof Profiler) {
-            $this->profiler = $profilerOrConfig;
-        } elseif (is_array($profilerOrConfig)) {
-            // Config passed as first arg
-        } else {
-            // No initial config
-        }
+        $this->profiler = $profiler;
         $this->parameterBag = $parameterBag;
     }
 
-    // Remove getName, getDescription, getParameters methods
 
     // Add type hint for the token parameter
     public function execute(string $token): string
     {
         // Ensure profiler is available
-        $profiler = $this->getProfiler();
-        if (!$profiler) {
+        if (!$this->profiler) {
             return json_encode(['error' => 'Profiler service not available.']);
-        }
+       }
 
         // Load the profile for the given token
         try {
-            $profile = $profiler->loadProfile($token);
+            $profile = $this->profiler->loadProfile($token);
         } catch (\Exception $e) {
              return json_encode(['error' => "Error loading profile for token {$token}: " . $e->getMessage()]);
         }
@@ -140,41 +123,4 @@ class ProfilerGetByTokenTool { // Remove implements ToolInterface
         }
     }
 
-    // --- Helper methods remain the same ---
-    /**
-     * Get the profiler instance
-     */
-    private function getProfiler(): ?Profiler
-    {
-        // ... (keep existing implementation) ...
-        if ($this->profiler !== null) {
-            return $this->profiler;
-        }
-        if (self::$container === null) {
-            global $kernel;
-            if (isset($kernel) && method_exists($kernel, 'getContainer')) {
-                self::$container = $kernel->getContainer();
-            } else if (class_exists('\\Symfony\\Component\\HttpKernel\\KernelInterface')) {
-                $kernelFile = $_SERVER['DOCUMENT_ROOT'] ?? getcwd();
-                $kernelFile = rtrim($kernelFile, '/') . '/var/cache/dev/App_KernelDevDebugContainer.php';
-                if (file_exists($kernelFile)) {
-                    require_once $kernelFile;
-                    if (class_exists('\\App_KernelDevDebugContainer')) {
-                        $container = new \App_KernelDevDebugContainer();
-                        if ($container instanceof ContainerInterface) {
-                             self::$container = $container;
-                        }
-                    }
-                }
-            }
-        }
-        if (self::$container !== null && self::$container->has('profiler')) {
-             $profilerService = self::$container->get('profiler');
-             if ($profilerService instanceof Profiler) {
-                 $this->profiler = $profilerService;
-                 return $this->profiler;
-             }
-        }
-        return null;
-    }
 }

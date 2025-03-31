@@ -29,7 +29,6 @@ services:
     Killerwolf\MCPProfilerBundle\Tools\ProfilerList:
         arguments:
             - '@?profiler'
-            - null # Config argument (kept from original)
             - '@parameter_bag' # Kept, as constructor still accepts it
         tags:
             - { name: 'mcp.tool' }
@@ -37,26 +36,20 @@ services:
     Killerwolf\MCPProfilerBundle\Tools\ProfilerGetAllCollectorByToken:
         arguments:
             - '@?profiler'
-            - null # Config argument
         tags:
             - { name: 'mcp.tool' }
 
     Killerwolf\MCPProfilerBundle\Tools\ProfilerGetOneCollectorByToken:
         arguments:
             - '@?profiler'
-            - null # Config argument
         tags:
             - { name: 'mcp.tool' }
 
     Killerwolf\MCPProfilerBundle\Tools\ProfilerGetByTokenTool:
         arguments:
             - '@?profiler'
-            - null # Config argument
             - '@parameter_bag' # Kept, as constructor still accepts it
         tags:
             - { name: 'mcp.tool' }
 
-    Killerwolf\MCPProfilerBundle\Tools\ExampleTool:
-        tags:
-            - { name: 'mcp.tool' }
 

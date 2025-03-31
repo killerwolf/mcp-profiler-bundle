@@ -140,12 +140,7 @@ class RunMCPServerCommand extends Command
                         'name' => 'profiler:get_by_token',
                         'description' => 'Gets basic profile data for a specific token.',
                         'inputSchema' => array_merge($schemaBase, $tokenInput),
-                    ],
-                    [
-                        'name' => 'example:hello',
-                        'description' => 'An example tool that returns a greeting.',
-                        'inputSchema' => array_merge($schemaBase, ['properties' => ['name' => ['type' => 'string', 'default' => 'World']]]),
-                    ],
+                    ]
                 ],
             ],
         ];
