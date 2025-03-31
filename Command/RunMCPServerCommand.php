@@ -2,7 +2,6 @@
 
 namespace Killerwolf\MCPProfilerBundle\Command;
 
-use Killerwolf\MCPProfilerBundle\Tools\ExampleTool;
 use Killerwolf\MCPProfilerBundle\Tools\ProfilerGetAllCollectorByToken;
 use Killerwolf\MCPProfilerBundle\Tools\ProfilerGetByTokenTool;
 use Killerwolf\MCPProfilerBundle\Tools\ProfilerGetOneCollectorByToken;
