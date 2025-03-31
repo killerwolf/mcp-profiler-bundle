@@ -28,6 +28,16 @@ The bundle provides several tools for interacting with the Symfony Profiler:
 - **profiler_get_all_collector_by_token**: Gets all collectors for a specific profiler entry
 - **profiler_get_one_collector_by_token**: Gets a specific collector for a profiler entry
 
+Here are some examples of the MCP Inspector in action with different IDEs:
+
+![Claude MCP Inspector](Resources/docs/images/claude_mcp_screenshot.jpg)
+*Capture d'écran de l'interface MCP Inspector intégrée avec Claude AI, montrant l'interaction avec le serveur MCP Symfony et l'accès aux données du Profiler.*
+
+![Cline MCP Inspector](Resources/docs/images/cline_mcp_screenshot.jpg)
+*Capture d'écran de Cline IDE avec l'inspecteur MCP, illustrant comment les outils du profiler Symfony sont exposés via le protocole MCP.*
+
+![Cursor MCP Inspector](Resources/docs/images/cursor_mcp_screenshot.jpg)
+*Capture d'écran de Cursor IDE montrant l'inspecteur MCP en action, permettant d'explorer et d'interagir avec les données du Profiler Symfony.*
 
 ## Commands
 
@@ -55,8 +65,6 @@ The MCP Inspector is a tool that allows you to interact with your MCP Server and
 ```bash
 npx --registry https://registry.npmjs.org @modelcontextprotocol/inspector
 ```
-
-@add image of the Inspector with the example usage
 
 ### Interacting with the Symfony Profiler (for learning/debug purposes)
 
