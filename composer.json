@@ -20,6 +20,9 @@
             "Killerwolf\\MCPProfilerBundle\\": ""
         }
     },
+    "scripts": {
+        "cs-fix": "docker run --rm -v $(pwd):/app -w /app ghcr.io/php-cs-fixer/php-cs-fixer:3-php8.3 fix ."
+    },
     "bin": [
         "bin/run-mcp.sh"
     ]

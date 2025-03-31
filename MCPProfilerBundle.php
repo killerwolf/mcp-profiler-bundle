@@ -11,10 +11,10 @@ class MCPProfilerBundle extends Bundle
     public function build(ContainerBuilder $container): void
     {
         parent::build($container);
-        
+
         // Compiler pass removed as tools are now injected via !tagged_iterator in services.yaml
     }
-    
+
     /**
      * Returns the bundle's container extension
      */
@@ -23,7 +23,7 @@ class MCPProfilerBundle extends Bundle
         if (null === $this->extension) {
             $this->extension = new MCPProfilerExtension();
         }
-        
+
         return $this->extension;
     }
 }

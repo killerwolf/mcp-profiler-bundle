@@ -5,7 +5,8 @@ namespace Killerwolf\MCPProfilerBundle\Tools;
 use Symfony\Component\HttpKernel\Profiler\Profiler;
 use Symfony\Component\DependencyInjection\ParameterBag\ParameterBagInterface;
 
-class ProfilerList { // Remove implements ToolInterface
+class ProfilerList
+{
     private ?Profiler $profiler = null;
     private ?ParameterBagInterface $parameterBag = null;
 
@@ -27,7 +28,7 @@ class ProfilerList { // Remove implements ToolInterface
     ): string {
         if (!$this->profiler) {
             return json_encode(['error' => 'Profiler service not available.']);
-       }
+        }
         try {
             // Use the profiler to find profiles matching the criteria
             $tokens = $this->profiler->find($ip, $url, $limit, $method, null, null, $statusCode);

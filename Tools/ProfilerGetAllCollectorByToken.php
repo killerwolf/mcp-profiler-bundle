@@ -4,8 +4,8 @@ namespace Killerwolf\MCPProfilerBundle\Tools;
 
 use Symfony\Component\HttpKernel\Profiler\Profiler;
 
-
-class ProfilerGetAllCollectorByToken { // Remove implements ToolInterface
+class ProfilerGetAllCollectorByToken
+{
     private ?Profiler $profiler = null;
 
     // Inject the Profiler service
@@ -18,14 +18,14 @@ class ProfilerGetAllCollectorByToken { // Remove implements ToolInterface
     public function execute(string $token): string
     {
         if (!$this->profiler) {
-             return json_encode(['error' => 'Profiler service not available.']);
+            return json_encode(['error' => 'Profiler service not available.']);
         }
 
         // Load the profile for the given token
         try {
             $profile = $this->profiler->loadProfile($token);
         } catch (\Exception $e) {
-             return json_encode(['error' => "Error loading profile for token {$token}: " . $e->getMessage()]);
+            return json_encode(['error' => "Error loading profile for token {$token}: " . $e->getMessage()]);
         }
 
         if (!$profile) {
@@ -37,7 +37,7 @@ class ProfilerGetAllCollectorByToken { // Remove implements ToolInterface
             $collectorNames = array_keys($profile->getCollectors());
             return json_encode($collectorNames, JSON_PRETTY_PRINT);
         } catch (\Exception $e) {
-             return json_encode(['error' => "Error getting collector names for token {$token}: " . $e->getMessage()]);
+            return json_encode(['error' => "Error getting collector names for token {$token}: " . $e->getMessage()]);
         }
     }
 }
