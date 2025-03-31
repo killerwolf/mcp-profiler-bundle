@@ -13,6 +13,7 @@
         "php": ">=8.1",
         "symfony/framework-bundle": "^6.4|^7.0",
         "symfony/console": "^6.4|^7.0",
+        "symfony/http-kernel": "^6.4|^7.0",
         "ext-pcntl": "*"
     },
     "autoload": {
@@ -21,7 +22,8 @@
         }
     },
     "scripts": {
-        "cs-fix": "docker run --rm -v $(pwd):/app -w /app ghcr.io/php-cs-fixer/php-cs-fixer:3-php8.3 fix ."
+        "cs-fix": "docker run --rm -v $(pwd):/app -w /app ghcr.io/php-cs-fixer/php-cs-fixer:3-php8.3 fix .",
+        "phpstan": "docker run --rm -v $(pwd):/app -w /app ghcr.io/phpstan/phpstan:2 analyse -c phpstan.neon"
     },
     "bin": [
         "bin/run-mcp.sh"

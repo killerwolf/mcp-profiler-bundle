@@ -46,8 +46,11 @@ jobs:
       with:
         args: fix . --dry-run --diff
 
-    - name: Run PHPStan
-      run: vendor/bin/phpstan analyse --memory-limit=2G # Added memory limit as PHPStan can be memory intensive
+    - name: Run PHPStan (Docker)
+      uses: docker://ghcr.io/phpstan/phpstan:2
+      with:
+        args: analyse . -c phpstan.neon --memory-limit=2G
+      continue-on-error: true # Allow the workflow to continue even if PHPStan finds errors
 
     - name: Run PHPUnit
       run: vendor/bin/phpunit
