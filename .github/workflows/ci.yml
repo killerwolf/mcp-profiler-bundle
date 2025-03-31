@@ -44,7 +44,7 @@ jobs:
     - name: Run PHP CS Fixer (Docker)
       uses: docker://ghcr.io/php-cs-fixer/php-cs-fixer:3-php8.3
       with:
-        args: fix --dry-run --diff
+        args: fix . --dry-run --diff
 
     - name: Run PHPStan
       run: vendor/bin/phpstan analyse --memory-limit=2G # Added memory limit as PHPStan can be memory intensive
