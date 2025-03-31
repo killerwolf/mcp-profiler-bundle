@@ -21,13 +21,6 @@ class Configuration implements ConfigurationInterface
             ->children()
                 ->scalarNode('name')->defaultValue('Symfony MCP Profiler Bundle')->end()
                 ->scalarNode('version')->defaultValue('1.0.0')->end()
-                ->arrayNode('profiler')
-                    ->addDefaultsIfNotSet()
-                    ->children()
-                        ->scalarNode('storage_path')->defaultValue('%kernel.cache_dir%/profiler')->end()
-                        ->booleanNode('enabled')->defaultValue(true)->end()
-                    ->end()
-                ->end()
             ->end()
         ;
 

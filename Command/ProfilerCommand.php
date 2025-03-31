@@ -23,7 +23,7 @@ class ProfilerCommand extends Command
         $this->profiler = $profiler;
     }
 
-    protected function configure()
+    protected function configure(): void
     {
         $this
             ->addArgument('action', InputArgument::REQUIRED, 'Action to perform (list, show, purge)')
@@ -139,12 +139,16 @@ EOT
             }
             
             $io->section(sprintf('Collector: %s', $collectorName));
-            $data = $collector->getData();
-            
-            if (is_array($data)) {
-                $this->displayArrayData($data, $output, $io);
+            if (method_exists($collector, 'getData')) {
+                $data = $collector->getData();
+
+                if (is_array($data)) {
+                    $this->displayArrayData($data, $output, $io);
+                } else {
+                    $io->text(var_export($data, true));
+                }
             } else {
-                $io->text(var_export($data, true));
+                $io->warning(sprintf('Collector "%s" does not have a standard getData() method. Cannot display raw data.', $collectorName));
             }
         } else {
             // List available collectors

@@ -5,7 +5,7 @@ The Symfony MCP Profiler Bundle mimics the WebProfiler Bundle. It bridges the ga
 ## Installation
 
 ```bash
-composer require killerwolf/mcp-profiler-bundle:dev-main
+composer require killerwolf/mcp-profiler-bundle:^0.1
 ```
 
 ## Configuration
@@ -19,18 +19,6 @@ return [
 ];
 ```
 
-Configure the bundle in your Symfony configuration:
-
-```yaml
-# config/packages/mcp_server.yaml
-mcp_server:
-    name: 'Your MCP Server Name'
-    version: '1.0.0'
-    profiler:
-        storage_path: '%kernel.cache_dir%/profiler'
-        enabled: true
-```
-
 ## Built-in Tools
 
 The bundle provides several tools for interacting with the Symfony Profiler:
@@ -39,7 +27,6 @@ The bundle provides several tools for interacting with the Symfony Profiler:
 - **profiler_get_by_token**: Gets a specific profiler entry by token
 - **profiler_get_all_collector_by_token**: Gets all collectors for a specific profiler entry
 - **profiler_get_one_collector_by_token**: Gets a specific collector for a profiler entry
-- **example_tool**: A simple example tool for demonstration purposes
 
 
 ## Commands
@@ -52,15 +39,14 @@ The bundle provides the following commands:
 {
   "mcpServers": {
     "symfony-mcp": {
-      "command": "/path/to/your/project/vendor/killerwolf/mcp-profiler-bundle/bin/run-mcp.sh",
-      "env": {
-        "BASE": "/path/to/your/project"
-      }
+      "command": "/path/to/your/symfony/project/bin/console",
+      "args": [
+        "mcp:server:run"
+      ]
     }
   }
 }
 ```
-**Note**: `command` is the absolute path to the `run-mcp.sh` script, and `BASE` is the environment variable providing the base path to your Symfony project. The script uses this path to locate your Symfony console and create log directories.
 
 ### Using the MCP Inspector
 
