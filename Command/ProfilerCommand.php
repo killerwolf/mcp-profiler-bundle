@@ -22,8 +22,8 @@ use Symfony\Component\VarDumper\Dumper\CliDumper;
 class ProfilerCommand extends Command
 {
     private Profiler $profiler;
-   private string $cacheDir;
- 
+    private string $cacheDir;
+
     // Inject kernel.cache_dir. Binding might need configuration if not autowired.
     public function __construct(Profiler $profiler, string $cacheDir)
     {
@@ -39,7 +39,8 @@ class ProfilerCommand extends Command
             ->addArgument('token', InputArgument::OPTIONAL, 'Profiler token (required for show action)')
             ->addOption('limit', 'l', InputOption::VALUE_OPTIONAL, 'Number of profiles to show when listing', 20)
             ->addOption('collector', 'c', InputOption::VALUE_OPTIONAL, 'Specific collector to display for show action')
-            ->setHelp(<<<EOT
+            ->setHelp(
+                <<<EOT
 The <info>%command.name%</info> command provides basic interaction with the Symfony profiler.
 
 Available actions:
@@ -60,7 +61,7 @@ EOT
     {
         $io = new SymfonyStyle($input, $output);
         $action = $input->getArgument('action');
-        
+
         try {
             switch ($action) {
                 case 'list':
@@ -78,7 +79,7 @@ EOT
             return Command::FAILURE;
         }
     }
-    
+
     private function executeList(InputInterface $input, OutputInterface $output, SymfonyStyle $io): int
     {
         $limit = (int) $input->getOption('limit');
@@ -94,12 +95,12 @@ EOT
         $allProfiles = [];
 
         if (!$appIdDirs->hasResults()) {
-             // Fallback or handle case where APP_ID structure isn't used?
-             // For now, assume structure exists if command is relevant.
-             $io->warning('Could not find application cache directories in ' . $baseCacheDir);
-             // Maybe try the default profiler?
-             // $tokens = $this->profiler->find(null, null, $limit, null, null, null);
-             // ... load profiles from default profiler ...
+            // Fallback or handle case where APP_ID structure isn't used?
+            // For now, assume structure exists if command is relevant.
+            $io->warning('Could not find application cache directories in ' . $baseCacheDir);
+            // Maybe try the default profiler?
+            // $tokens = $this->profiler->find(null, null, $limit, null, null, null);
+            // ... load profiles from default profiler ...
         } else {
             foreach ($appIdDirs as $appIdDir) {
                 $appIdDirName = $appIdDir->getFilename();
@@ -119,7 +120,7 @@ EOT
                     // Create a temporary profiler for this specific storage
                     $tempProfiler = new Profiler($storage);
                     $tokens = $tempProfiler->find(null, null, $limit * $appIdDirs->count(), null, null, null);
- 
+
                     foreach ($tokens as $token) {
                         // Load profile using the temporary profiler instance
                         $profile = $tempProfiler->loadProfile($token['token']);
@@ -142,7 +143,7 @@ EOT
 
         // Sort all found profiles by time, descending
         // Adjust sorting to access the profile object within the array
-        usort($allProfiles, fn($a, $b) => $b['profile']->getTime() <=> $a['profile']->getTime());
+        usort($allProfiles, fn ($a, $b) => $b['profile']->getTime() <=> $a['profile']->getTime());
 
         // Limit to the requested number
         $limitedProfiles = array_slice($allProfiles, 0, $limit);
@@ -162,11 +163,11 @@ EOT
                 $profile->getStatusCode()
             ]);
         }
-        
+
         $table->render();
         return Command::SUCCESS;
     }
-    
+
     private function executeShow(InputInterface $input, OutputInterface $output, SymfonyStyle $io): int
     {
         $token = $input->getArgument('token');
@@ -206,12 +207,12 @@ EOT
             }
         }
         // --- Modification End ---
-        
+
         if (!$profile) {
             $io->error(sprintf('No profile found for token "%s"', $token));
             return Command::FAILURE;
         }
-        
+
         $io->title(sprintf('Profile for "%s"', $token));
 
         $io->section('Profile Information');
@@ -223,7 +224,7 @@ EOT
             ['Time' => date('Y-m-d H:i:s', $profile->getTime())],
             ['Status' => $profile->getStatusCode()]
         );
-        
+
         $collectorName = $input->getOption('collector');
         if ($collectorName) {
             // Display specific collector
@@ -232,15 +233,15 @@ EOT
                 $io->error(sprintf('No collector named "%s" found', $collectorName));
                 return Command::FAILURE;
             }
-            
+
             $io->section(sprintf('Collector: %s', $collectorName));
             $data = null;
             $dumpedData = null;
-            
+
             if (method_exists($collector, 'getData')) {
                 try {
                     $data = $collector->getData();
-                    
+
                     if (is_array($data)) {
                         $this->displayArrayData($data, $output, $io);
                         return Command::SUCCESS;
@@ -255,7 +256,7 @@ EOT
             } else {
                 $dumpedData = $this->dumpData($collector);
             }
-            
+
             if ($dumpedData !== null) {
                 $io->text("Collector '{$collectorName}' data (dumped):\n" . $dumpedData);
             } else {
@@ -265,36 +266,36 @@ EOT
             // List available collectors
             $io->section('Available Collectors');
             $collectors = $profile->getCollectors();
-            
+
             $table = new Table($output);
             $table->setHeaders(['Collector', 'Data']);
-            
+
             foreach ($collectors as $collector) {
                 $table->addRow([
                     $collector->getName(),
                     sprintf('Use --collector=%s to view details', $collector->getName())
                 ]);
             }
-            
+
             $table->render();
         }
-        
+
         return Command::SUCCESS;
     }
-    
+
     private function executePurge(InputInterface $input, OutputInterface $output, SymfonyStyle $io): int
     {
         if (!$io->confirm('Are you sure you want to purge all profiler data?', false)) {
             $io->note('Operation cancelled');
             return Command::SUCCESS;
         }
-        
+
         $this->profiler->purge();
         $io->success('All profiler data has been purged');
-        
+
         return Command::SUCCESS;
     }
-    
+
     private function displayArrayData(array $data, OutputInterface $output, SymfonyStyle $io, int $level = 0): void
     {
         foreach ($data as $key => $value) {
@@ -306,7 +307,7 @@ EOT
             }
         }
     }
-    
+
     /**
      * Helper method to dump data using VarDumper
      */

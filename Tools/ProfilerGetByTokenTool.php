@@ -36,11 +36,11 @@ class ProfilerGetByTokenTool
         try {
             $appIdDirs = $finder->directories()->in($this->baseCacheDir)->depth('== 0')->name('*_*');
         } catch (\InvalidArgumentException $e) {
-             return json_encode(['error' => 'Could not access base cache directory: ' . $this->baseCacheDir . ' - ' . $e->getMessage()]);
+            return json_encode(['error' => 'Could not access base cache directory: ' . $this->baseCacheDir . ' - ' . $e->getMessage()]);
         }
 
         if (!$appIdDirs->hasResults()) {
-             return json_encode(['warning' => 'Could not find application cache directories in ' . $this->baseCacheDir]);
+            return json_encode(['warning' => 'Could not find application cache directories in ' . $this->baseCacheDir]);
         }
 
         foreach ($appIdDirs as $appIdDir) {

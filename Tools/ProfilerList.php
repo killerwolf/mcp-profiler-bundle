@@ -6,8 +6,8 @@ use Symfony\Component\HttpKernel\Profiler\Profiler;
 use Symfony\Component\HttpKernel\Profiler\FileProfilerStorage;
 use Symfony\Component\HttpKernel\Profiler\Profile;
 use Symfony\Component\DependencyInjection\ParameterBag\ParameterBagInterface;
-
 use Symfony\Component\Finder\Finder;
+
 class ProfilerList
 {
     private string $baseCacheDir;
@@ -37,15 +37,15 @@ class ProfilerList
             $appIdDirs = $finder->directories()->in($this->baseCacheDir)->depth('== 0')->name('*_*');
         } catch (\InvalidArgumentException $e) {
             // Handle case where baseCacheDir might not exist or is inaccessible
-             return json_encode(['error' => 'Could not access base cache directory: ' . $this->baseCacheDir . ' - ' . $e->getMessage()]);
+            return json_encode(['error' => 'Could not access base cache directory: ' . $this->baseCacheDir . ' - ' . $e->getMessage()]);
         }
 
         $allProfiles = [];
         $appCount = $appIdDirs->count(); // Count apps for calculating find limit
 
         if (!$appIdDirs->hasResults()) {
-             // Maybe return a warning or an empty list if no app dirs found?
-             return json_encode(['warning' => 'Could not find application cache directories in ' . $this->baseCacheDir]);
+            // Maybe return a warning or an empty list if no app dirs found?
+            return json_encode(['warning' => 'Could not find application cache directories in ' . $this->baseCacheDir]);
         }
 
         foreach ($appIdDirs as $appIdDir) {
@@ -90,7 +90,7 @@ class ProfilerList
         }
 
         // Sort all found profiles by time, descending
-        usort($allProfiles, fn($a, $b) => $b['profile']->getTime() <=> $a['profile']->getTime());
+        usort($allProfiles, fn ($a, $b) => $b['profile']->getTime() <=> $a['profile']->getTime());
 
         // Limit to the requested number *after* sorting all results
         $limitedProfiles = array_slice($allProfiles, 0, $limit);
