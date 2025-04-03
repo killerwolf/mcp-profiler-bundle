@@ -32,61 +32,86 @@ class ProfilerList
         ?int $statusCode = null
     ): string {
         $finder = new Finder();
-        // Find directories like 'fac_FAC', 'voi_VOI' etc. in base cache dir
+        $allProfiles = [];
+        $processed = false; // Flag to track if any profiler data was processed
+
+        // --- Try Multi-App Structure First ---
+        // Assumes baseCacheDir is like /path/to/var/cache
         try {
             $appIdDirs = $finder->directories()->in($this->baseCacheDir)->depth('== 0')->name('*_*');
-        } catch (\InvalidArgumentException $e) {
-            // Handle case where baseCacheDir might not exist or is inaccessible
-            return json_encode(['error' => 'Could not access base cache directory: ' . $this->baseCacheDir . ' - ' . $e->getMessage()]);
-        }
 
-        $allProfiles = [];
-        $appCount = $appIdDirs->count(); // Count apps for calculating find limit
+            if ($appIdDirs->hasResults()) {
+                $appCount = $appIdDirs->count();
+                foreach ($appIdDirs as $appIdDir) {
+                    $appIdDirName = $appIdDir->getFilename();
+                    $appIdParts = explode('_', $appIdDirName);
+                    $appId = $appIdParts[0];
 
-        if (!$appIdDirs->hasResults()) {
-            // Maybe return a warning or an empty list if no app dirs found?
-            return json_encode(['warning' => 'Could not find application cache directories in ' . $this->baseCacheDir]);
-        }
+                    $profilerDir = $appIdDir->getRealPath() . '/' . $this->environment . '/profiler';
+                    $dsn = 'file:' . $profilerDir;
 
-        foreach ($appIdDirs as $appIdDir) {
-            $appIdDirName = $appIdDir->getFilename();
-            // Extract App ID (e.g., 'fac' from 'fac_FAC') - adjust logic if needed
-            $appIdParts = explode('_', $appIdDirName);
-            $appId = $appIdParts[0]; // Assume first part is the app ID
+                    if (!is_dir($profilerDir)) {
+                        continue;
+                    }
 
-            $profilerDir = $appIdDir->getRealPath() . '/' . $this->environment . '/profiler';
-            $dsn = 'file:' . $profilerDir;
+                    try {
+                        $storage = new FileProfilerStorage($dsn);
+                        $tempProfiler = new Profiler($storage);
+                        // Fetch slightly more per app to increase chance of getting overall limit after sorting
+                        $findLimit = $appCount > 0 ? ceil($limit / $appCount) + 5 : $limit;
+                        $tokens = $tempProfiler->find($ip, $url, $findLimit, $method, null, null, $statusCode);
 
-            if (!is_dir($profilerDir)) {
-                continue; // Skip if profiler dir doesn't exist for this app/env
-            }
-
-            try {
-                $storage = new FileProfilerStorage($dsn);
-                // Create a temporary profiler for this specific storage
-                $tempProfiler = new Profiler($storage);
-                // Find tokens - fetch more initially to sort accurately later
-                // Adjust limit per app based on total apps to try and get enough overall
-                $findLimit = $appCount > 0 ? ceil($limit / $appCount) + 5 : $limit; // Fetch slightly more per app
-                $tokens = $tempProfiler->find($ip, $url, $findLimit, $method, null, null, $statusCode);
-
-                foreach ($tokens as $token) {
-                    // Load profile using the temporary profiler instance
-                    $profile = $tempProfiler->loadProfile($token['token']);
-                    if ($profile instanceof Profile) {
-                        // Store appId alongside the profile object
-                        $allProfiles[] = ['appId' => $appId, 'profile' => $profile];
+                        foreach ($tokens as $token) {
+                            $profile = $tempProfiler->loadProfile($token['token']);
+                            if ($profile instanceof Profile) {
+                                $allProfiles[] = ['appId' => $appId, 'profile' => $profile];
+                                $processed = true; // Mark as processed (multi-app structure found and used)
+                            }
+                        }
+                    } catch (\Exception $e) {
+                        continue; // Ignore errors for individual app storages
                     }
                 }
-            } catch (\Exception $e) {
-                // Log or warn about issues accessing storage for a specific app
-                // For now, we'll just continue, but logging could be added
-                continue;
+            }
+        } catch (\InvalidArgumentException $e) {
+            // Base cache dir might be inaccessible or not exist, proceed to check single-app path
+        }
+
+        // --- Fallback to Single-App Structure if Multi-App wasn't processed ---
+        if (!$processed) {
+            // Construct the path like /path/to/var/cache/dev/profiler
+            $directProfilerPath = $this->baseCacheDir . '/' . $this->environment . '/profiler';
+
+            if (is_dir($directProfilerPath)) {
+                 $dsn = 'file:' . $directProfilerPath;
+                 try {
+                     $storage = new FileProfilerStorage($dsn);
+                     $profiler = new Profiler($storage);
+                     $tokens = $profiler->find($ip, $url, $limit, $method, null, null, $statusCode);
+
+                     foreach ($tokens as $token) {
+                         $profile = $profiler->loadProfile($token['token']);
+                         if ($profile instanceof Profile) {
+                             // Add profile without appId for single-app case
+                             $allProfiles[] = ['profile' => $profile];
+                             // No need to set $processed=true here, as we only reach this if multi-app failed
+                         }
+                     }
+                 } catch (\Exception $e) {
+                     // Error accessing single-app profiler, return error or empty
+                     // Avoid returning here, let it fall through to the empty check below
+                     // Consider logging this error instead
+                 }
             }
         }
 
+
+        // --- Process Combined Results ---
         if (empty($allProfiles)) {
-            return json_encode(['message' => 'No profiles found matching the criteria across all applications.']);
+            // Provide a more informative message if no structure was found or accessible
+             $checkedPaths = $this->baseCacheDir . '/*_*/' . $this->environment . '/profiler' .
+                             (isset($directProfilerPath) ? ' and ' . $directProfilerPath : '');
+            return json_encode(['message' => 'No profiles found matching the criteria. Checked: ' . $checkedPaths]);
         }
 
         // Sort all found profiles by time, descending
@@ -98,9 +123,9 @@ class ProfilerList
         // Format the final results
         $results = [];
         foreach ($limitedProfiles as $profileData) {
-            $profile = $profileData['profile']; // Extract profile object
-            $results[] = [
-                'appId' => $profileData['appId'], // Include the App ID
+            $profile = $profileData['profile'];
+            $resultEntry = [
+                // Conditionally add appId if it exists
                 'token' => $profile->getToken(),
                 'ip' => $profile->getIp(),
                 'method' => $profile->getMethod(),
@@ -108,12 +133,14 @@ class ProfilerList
                 'time' => date('Y-m-d H:i:s', $profile->getTime()),
                 'status_code' => $profile->getStatusCode()
             ];
+            // Add appId only if it was set (i.e., came from multi-app logic)
+            if (isset($profileData['appId'])) {
+                 $resultEntry['appId'] = $profileData['appId'];
+            }
+            $results[] = $resultEntry;
         }
 
         return json_encode($results, JSON_PRETTY_PRINT | JSON_UNESCAPED_SLASHES | JSON_UNESCAPED_UNICODE);
-        // Multi-app logic will be inserted here.
-
-
     }
 
 
