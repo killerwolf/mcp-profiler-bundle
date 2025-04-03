@@ -53,7 +53,7 @@ class ProfilerGetAllCollectorByToken
                 // $checkedPaths[count($checkedPaths)-1] .= ' (error)';
             }
         } else {
-             $checkedPaths[count($checkedPaths)-1] .= ' (not found)';
+            $checkedPaths[count($checkedPaths) - 1] .= ' (not found)';
         }
 
         // --- 2. Check Multi-App Structure (Only if not found in direct path) ---
@@ -71,7 +71,9 @@ class ProfilerGetAllCollectorByToken
                                 continue;
                             }
                             $dsn = 'file:' . $profilerDir;
-                            if (!is_dir($profilerDir)) continue;
+                            if (!is_dir($profilerDir)) {
+                                continue;
+                            }
 
                             try {
                                 $storage = new FileProfilerStorage($dsn);
@@ -79,20 +81,22 @@ class ProfilerGetAllCollectorByToken
                                     $tempProfiler = new Profiler($storage);
                                     $profile = $tempProfiler->loadProfile($token);
                                     $foundAppId = explode('_', $appIdDir->getFilename())[0]; // Found via multi-app
-                                    if ($profile) break; // Found
+                                    if ($profile) {
+                                        break;
+                                    } // Found
                                 }
                             } catch (\Exception $e) {
                                 // Ignore and continue search
                             }
                         }
                     } else {
-                         // $checkedPaths[count($checkedPaths)-1] .= ' (no app dirs found)';
+                        // $checkedPaths[count($checkedPaths)-1] .= ' (no app dirs found)';
                     }
                 } else {
-                     // $checkedPaths[count($checkedPaths)-1] .= ' (base dir not found)';
+                    // $checkedPaths[count($checkedPaths)-1] .= ' (base dir not found)';
                 }
             } catch (\InvalidArgumentException $e) {
-                 // $checkedPaths[count($checkedPaths)-1] .= ' (error accessing base dir)';
+                // $checkedPaths[count($checkedPaths)-1] .= ' (error accessing base dir)';
             }
         }
 

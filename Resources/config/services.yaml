@@ -29,7 +29,6 @@ services:
     # Command for testing profiler access (Seems unrelated to MCP server itself)
     Killerwolf\MCPProfilerBundle\Command\ProfilerCommand:
         arguments:
-            - '@?profiler' # Optional profiler injection
             - '%kernel.cache_dir%' # Automatically inject the cache directory
         tags:
             - { name: 'console.command' }

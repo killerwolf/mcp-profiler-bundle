@@ -58,10 +58,10 @@ class ProfilerGetByTokenTool
                     }
                 }
             } catch (\Exception $e) {
-                 $checkedPathsLog[count($checkedPathsLog)-1] .= ' (error: ' . $e->getMessage() . ')';
+                $checkedPathsLog[count($checkedPathsLog) - 1] .= ' (error: ' . $e->getMessage() . ')';
             }
         } else {
-             $checkedPathsLog[] = $directProfilerPath . ' (not found)';
+            $checkedPathsLog[] = $directProfilerPath . ' (not found)';
         }
 
         // --- 2. Check Multi-App Structure (Only if not found in direct path) ---
@@ -80,7 +80,9 @@ class ProfilerGetByTokenTool
                                 continue;
                             }
                             $dsn = 'file:' . $profilerDir;
-                            if (!is_dir($profilerDir)) continue;
+                            if (!is_dir($profilerDir)) {
+                                continue;
+                            }
 
                             try {
                                 $storage = new FileProfilerStorage($dsn);
@@ -88,7 +90,9 @@ class ProfilerGetByTokenTool
                                     $tempProfiler = new Profiler($storage);
                                     $profile = $tempProfiler->loadProfile($token);
                                     $foundAppId = explode('_', $appIdDir->getFilename())[0]; // Found via multi-app
-                                    if ($profile) break; // Found
+                                    if ($profile) {
+                                        break;
+                                    } // Found
                                 }
                             } catch (\Exception $e) {
                                 // Ignore and continue search
@@ -96,16 +100,16 @@ class ProfilerGetByTokenTool
                         }
                         // Add status if loop finished without finding profile
                         if (!$profile) {
-                             $checkedPathsLog[count($checkedPathsLog)-1] .= ' (token not found in app dirs)';
+                            $checkedPathsLog[count($checkedPathsLog) - 1] .= ' (token not found in app dirs)';
                         }
                     } else {
-                         $checkedPathsLog[count($checkedPathsLog)-1] .= ' (no app dirs found)';
+                        $checkedPathsLog[count($checkedPathsLog) - 1] .= ' (no app dirs found)';
                     }
                 } else {
-                     $checkedPathsLog[count($checkedPathsLog)-1] .= ' (base dir not found)';
+                    $checkedPathsLog[count($checkedPathsLog) - 1] .= ' (base dir not found)';
                 }
             } catch (\InvalidArgumentException $e) {
-                 $checkedPathsLog[count($checkedPathsLog)-1] .= ' (error accessing base dir: ' . $e->getMessage() . ')';
+                $checkedPathsLog[count($checkedPathsLog) - 1] .= ' (error accessing base dir: ' . $e->getMessage() . ')';
             }
         }
 
@@ -132,88 +136,88 @@ class ProfilerGetByTokenTool
 
         $collectors = $profile->getCollectors();
         foreach ($collectors as $collector) {
-             $collectorName = $collector->getName();
-             // ... (rest of collector processing logic remains the same) ...
-             if (method_exists($collector, 'getData')) {
-                 try {
-                     $collectorData = $collector->getData();
-                     json_encode($collectorData);
-                     $data['collectors'][$collectorName] = $collectorData;
-                 } catch (\Exception $e) {
-                     $cloner = new VarCloner();
-                     $dumper = new CliDumper();
-                     $output = fopen('php://memory', 'r+');
-                     $dump = "Could not dump data.";
-                     try {
-                         $originalData = $collector->getData();
-                         $dumper->dump($cloner->cloneVar($originalData), $output);
-                         rewind($output);
-                         $dump = stream_get_contents($output);
-                     } catch (\Exception $dumpError) {
-                         $dump = "Could not dump data: " . $dumpError->getMessage();
-                     }
-                     fclose($output);
-                     $data['collectors'][$collectorName] = ['error' => 'Could not serialize data: ' . $e->getMessage(), 'dump' => $dump];
-                 }
-             } elseif ($collector instanceof \Symfony\Component\HttpKernel\DataCollector\RequestDataCollector) {
-                 try {
-                     $requestData = [
-                         'method' => $collector->getMethod(),
-                         'request_headers' => $collector->getRequestHeaders()->all(),
-                         'response_headers' => $collector->getResponseHeaders()->all(),
-                         'request_server' => $collector->getRequestServer()->all(),
-                         'request_cookies' => $collector->getRequestCookies()->all(),
-                         'request_attributes' => $collector->getRequestAttributes()->all(),
-                         'request_query' => $collector->getRequestQuery()->all(),
-                         'request_request' => $collector->getRequestRequest()->all(),
-                         'content_type' => $collector->getContentType(),
-                         'status_code' => $collector->getStatusCode(),
-                         'status_text' => $collector->getStatusText(),
-                     ];
-                     json_encode($requestData);
-                     $data['collectors'][$collectorName] = $requestData;
-                 } catch (\Exception $e) {
-                     $data['collectors'][$collectorName] = ['error' => 'Could not serialize RequestDataCollector: ' . $e->getMessage()];
-                 }
-             } else {
-                 try {
-                     $reflectionClass = new \ReflectionClass($collector);
-                     $collectorData = [];
-                     foreach ($reflectionClass->getProperties(\ReflectionProperty::IS_PUBLIC) as $property) {
-                         if (!$property->isStatic()) {
-                             $propertyName = $property->getName();
-                             $value = $property->getValue($collector);
-                             try {
-                                 json_encode($value);
-                                 $collectorData[$propertyName] = $value;
-                             } catch (\Exception $e) {
-                                 $collectorData[$propertyName] = ['error' => 'Unserializable value', 'type' => get_debug_type($value)];
-                             }
-                         }
-                     }
-                     if ($reflectionClass->hasProperty('data')) {
-                         $dataProperty = $reflectionClass->getProperty('data');
-                         $dataValue = $dataProperty->getValue($collector);
-                         if ($dataValue instanceof \Symfony\Component\VarDumper\Cloner\Data) {
-                             $collectorData['data_object'] = 'Symfony VarDumper Data object (not directly serializable)';
-                         } else {
-                             try {
-                                 json_encode($dataValue);
-                                 if (is_array($dataValue)) {
-                                     $collectorData = array_merge($collectorData, $dataValue);
-                                 } elseif ($dataValue !== null) {
-                                     $collectorData['data_value'] = $dataValue;
-                                 }
-                             } catch (\Exception $e) {
-                                  $collectorData['data_value'] = ['error' => 'Unserializable value in data property', 'type' => get_debug_type($dataValue)];
-                             }
-                         }
-                     }
-                     $data['collectors'][$collectorName] = $collectorData;
-                 } catch (\Exception $e) {
-                     $data['collectors'][$collectorName] = ['error' => 'Could not extract or serialize data via reflection: ' . $e->getMessage()];
-                 }
-             }
+            $collectorName = $collector->getName();
+            // ... (rest of collector processing logic remains the same) ...
+            if (method_exists($collector, 'getData')) {
+                try {
+                    $collectorData = $collector->getData();
+                    json_encode($collectorData);
+                    $data['collectors'][$collectorName] = $collectorData;
+                } catch (\Exception $e) {
+                    $cloner = new VarCloner();
+                    $dumper = new CliDumper();
+                    $output = fopen('php://memory', 'r+');
+                    $dump = "Could not dump data.";
+                    try {
+                        $originalData = $collector->getData();
+                        $dumper->dump($cloner->cloneVar($originalData), $output);
+                        rewind($output);
+                        $dump = stream_get_contents($output);
+                    } catch (\Exception $dumpError) {
+                        $dump = "Could not dump data: " . $dumpError->getMessage();
+                    }
+                    fclose($output);
+                    $data['collectors'][$collectorName] = ['error' => 'Could not serialize data: ' . $e->getMessage(), 'dump' => $dump];
+                }
+            } elseif ($collector instanceof \Symfony\Component\HttpKernel\DataCollector\RequestDataCollector) {
+                try {
+                    $requestData = [
+                        'method' => $collector->getMethod(),
+                        'request_headers' => $collector->getRequestHeaders()->all(),
+                        'response_headers' => $collector->getResponseHeaders()->all(),
+                        'request_server' => $collector->getRequestServer()->all(),
+                        'request_cookies' => $collector->getRequestCookies()->all(),
+                        'request_attributes' => $collector->getRequestAttributes()->all(),
+                        'request_query' => $collector->getRequestQuery()->all(),
+                        'request_request' => $collector->getRequestRequest()->all(),
+                        'content_type' => $collector->getContentType(),
+                        'status_code' => $collector->getStatusCode(),
+                        'status_text' => $collector->getStatusText(),
+                    ];
+                    json_encode($requestData);
+                    $data['collectors'][$collectorName] = $requestData;
+                } catch (\Exception $e) {
+                    $data['collectors'][$collectorName] = ['error' => 'Could not serialize RequestDataCollector: ' . $e->getMessage()];
+                }
+            } else {
+                try {
+                    $reflectionClass = new \ReflectionClass($collector);
+                    $collectorData = [];
+                    foreach ($reflectionClass->getProperties(\ReflectionProperty::IS_PUBLIC) as $property) {
+                        if (!$property->isStatic()) {
+                            $propertyName = $property->getName();
+                            $value = $property->getValue($collector);
+                            try {
+                                json_encode($value);
+                                $collectorData[$propertyName] = $value;
+                            } catch (\Exception $e) {
+                                $collectorData[$propertyName] = ['error' => 'Unserializable value', 'type' => get_debug_type($value)];
+                            }
+                        }
+                    }
+                    if ($reflectionClass->hasProperty('data')) {
+                        $dataProperty = $reflectionClass->getProperty('data');
+                        $dataValue = $dataProperty->getValue($collector);
+                        if ($dataValue instanceof \Symfony\Component\VarDumper\Cloner\Data) {
+                            $collectorData['data_object'] = 'Symfony VarDumper Data object (not directly serializable)';
+                        } else {
+                            try {
+                                json_encode($dataValue);
+                                if (is_array($dataValue)) {
+                                    $collectorData = array_merge($collectorData, $dataValue);
+                                } elseif ($dataValue !== null) {
+                                    $collectorData['data_value'] = $dataValue;
+                                }
+                            } catch (\Exception $e) {
+                                $collectorData['data_value'] = ['error' => 'Unserializable value in data property', 'type' => get_debug_type($dataValue)];
+                            }
+                        }
+                    }
+                    $data['collectors'][$collectorName] = $collectorData;
+                } catch (\Exception $e) {
+                    $data['collectors'][$collectorName] = ['error' => 'Could not extract or serialize data via reflection: ' . $e->getMessage()];
+                }
+            }
         }
 
         // Return JSON string

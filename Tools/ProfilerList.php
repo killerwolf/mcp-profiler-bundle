@@ -62,14 +62,17 @@ class ProfilerList
                     $profile = $profiler->loadProfile($token['token']);
                     if ($profile instanceof Profile) {
                         $profileData = ['profile' => $profile];
-                        if ($directPathAppId) $profileData['appId'] = $directPathAppId;
+                        if ($directPathAppId) {
+                            $profileData['appId'] = $directPathAppId;
+                        }
                         $allProfiles[] = $profileData;
                         $foundProfileTokens[$profile->getToken()] = true;
                     }
                 }
-            } catch (\Exception $e) { /* Log? */ }
+            } catch (\Exception $e) { /* Log? */
+            }
         } else {
-             $checkedPaths[count($checkedPaths)-1] .= ' (not found)';
+            $checkedPaths[count($checkedPaths) - 1] .= ' (not found)';
         }
 
         // --- 2. Check Multi-App Structure ---
@@ -83,9 +86,13 @@ class ProfilerList
                     $appCount = $appIdDirs->count();
                     foreach ($appIdDirs as $appIdDir) {
                         $profilerDir = $appIdDir->getRealPath() . '/' . $envName . '/profiler';
-                        if ($profilerDir === $directProfilerPath) continue;
+                        if ($profilerDir === $directProfilerPath) {
+                            continue;
+                        }
                         $dsn = 'file:' . $profilerDir;
-                        if (!is_dir($profilerDir)) continue;
+                        if (!is_dir($profilerDir)) {
+                            continue;
+                        }
 
                         try {
                             $storage = new FileProfilerStorage($dsn);
@@ -94,24 +101,27 @@ class ProfilerList
                             $tokens = $tempProfiler->find($ip, $url, $findLimit, $method, null, null, $statusCode);
 
                             foreach ($tokens as $token) {
-                                if (isset($foundProfileTokens[$token['token']])) continue;
+                                if (isset($foundProfileTokens[$token['token']])) {
+                                    continue;
+                                }
                                 $profile = $tempProfiler->loadProfile($token['token']);
                                 if ($profile instanceof Profile) {
-                                     $appId = explode('_', $appIdDir->getFilename())[0];
-                                     $allProfiles[] = ['appId' => $appId, 'profile' => $profile];
-                                     $foundProfileTokens[$profile->getToken()] = true;
+                                    $appId = explode('_', $appIdDir->getFilename())[0];
+                                    $allProfiles[] = ['appId' => $appId, 'profile' => $profile];
+                                    $foundProfileTokens[$profile->getToken()] = true;
                                 }
                             }
-                        } catch (\Exception $e) { /* Log? */ }
+                        } catch (\Exception $e) { /* Log? */
+                        }
                     }
                 } else {
-                     $checkedPaths[count($checkedPaths)-1] .= ' (no app dirs found)';
+                    $checkedPaths[count($checkedPaths) - 1] .= ' (no app dirs found)';
                 }
             } else {
-                 $checkedPaths[count($checkedPaths)-1] .= ' (base dir not found)';
+                $checkedPaths[count($checkedPaths) - 1] .= ' (base dir not found)';
             }
         } catch (\InvalidArgumentException $e) {
-             $checkedPaths[count($checkedPaths)-1] .= ' (error accessing base dir)';
+            $checkedPaths[count($checkedPaths) - 1] .= ' (error accessing base dir)';
         }
 
         // --- Process Combined Results ---
@@ -133,7 +143,9 @@ class ProfilerList
                 'time' => date('Y-m-d H:i:s', $profile->getTime()),
                 'status_code' => $profile->getStatusCode()
             ];
-            if (isset($profileData['appId'])) $resultEntry['appId'] = $profileData['appId'];
+            if (isset($profileData['appId'])) {
+                $resultEntry['appId'] = $profileData['appId'];
+            }
             $results[] = $resultEntry;
         }
 

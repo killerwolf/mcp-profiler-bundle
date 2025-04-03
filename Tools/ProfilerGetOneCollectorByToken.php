@@ -56,7 +56,7 @@ class ProfilerGetOneCollectorByToken
                 // $checkedPaths[count($checkedPaths)-1] .= ' (error)';
             }
         } else {
-             $checkedPaths[count($checkedPaths)-1] .= ' (not found)';
+            $checkedPaths[count($checkedPaths) - 1] .= ' (not found)';
         }
 
         // --- 2. Check Multi-App Structure (Only if not found in direct path) ---
@@ -74,7 +74,9 @@ class ProfilerGetOneCollectorByToken
                                 continue;
                             }
                             $dsn = 'file:' . $profilerDir;
-                            if (!is_dir($profilerDir)) continue;
+                            if (!is_dir($profilerDir)) {
+                                continue;
+                            }
 
                             try {
                                 $storage = new FileProfilerStorage($dsn);
@@ -82,20 +84,22 @@ class ProfilerGetOneCollectorByToken
                                     $tempProfiler = new Profiler($storage);
                                     $profile = $tempProfiler->loadProfile($token);
                                     $foundAppId = explode('_', $appIdDir->getFilename())[0]; // Found via multi-app
-                                    if ($profile) break; // Found
+                                    if ($profile) {
+                                        break;
+                                    } // Found
                                 }
                             } catch (\Exception $e) {
                                 // Ignore and continue search
                             }
                         }
                     } else {
-                         // $checkedPaths[count($checkedPaths)-1] .= ' (no app dirs found)';
+                        // $checkedPaths[count($checkedPaths)-1] .= ' (no app dirs found)';
                     }
                 } else {
-                     // $checkedPaths[count($checkedPaths)-1] .= ' (base dir not found)';
+                    // $checkedPaths[count($checkedPaths)-1] .= ' (base dir not found)';
                 }
             } catch (\InvalidArgumentException $e) {
-                 // $checkedPaths[count($checkedPaths)-1] .= ' (error accessing base dir)';
+                // $checkedPaths[count($checkedPaths)-1] .= ' (error accessing base dir)';
             }
         }
 
@@ -135,12 +139,12 @@ class ProfilerGetOneCollectorByToken
 
         // Return data or dumped representation
         if ($data !== null) {
-             try {
-                 return json_encode($data, JSON_PRETTY_PRINT | JSON_INVALID_UTF8_SUBSTITUTE | JSON_UNESCAPED_SLASHES | JSON_UNESCAPED_UNICODE);
-             } catch (\Exception $e) {
-                 $dumpedData = $this->dumpData($data);
-                 return "Collector '{$collectorName}' data (JSON failed, dumped):\n" . $dumpedData;
-             }
+            try {
+                return json_encode($data, JSON_PRETTY_PRINT | JSON_INVALID_UTF8_SUBSTITUTE | JSON_UNESCAPED_SLASHES | JSON_UNESCAPED_UNICODE);
+            } catch (\Exception $e) {
+                $dumpedData = $this->dumpData($data);
+                return "Collector '{$collectorName}' data (JSON failed, dumped):\n" . $dumpedData;
+            }
         } elseif ($dumpedData !== null) {
             return "Collector '{$collectorName}' data (dumped):\n" . $dumpedData;
         } else {

@@ -20,19 +20,16 @@ use Symfony\Component\VarDumper\Dumper\CliDumper;
 #[AsCommand(name: 'mcp:profiler', description: 'Interact with Symfony profiler')]
 class ProfilerCommand extends Command
 {
-    private ?Profiler $profiler;
-    // $cacheDir is the env-specific cache dir, e.g., /path/to/var/cache/dev or /path/to/var/cache/APP_ID/dev
     private string $cacheDir;
 
-    public function __construct(?Profiler $profiler, string $cacheDir)
+    public function __construct(string $cacheDir)
     {
         parent::__construct();
-    /**
-     * @param FileProfilerStorage $profilerStorage The profiler storage service, automatically injected by Symfony.
-     *                                                Its configuration (e.g., the DSN 'file:%kernel.cache_dir%/profiler' for FileProfilerStorage)
-     *                                                is typically defined in framework.yaml or web_profiler.yaml.
-     */
-        $this->profiler = $profiler;
+        /**
+         * @param FileProfilerStorage $profilerStorage The profiler storage service, automatically injected by Symfony.
+         *                                                Its configuration (e.g., the DSN 'file:%kernel.cache_dir%/profiler' for FileProfilerStorage)
+         *                                                is typically defined in framework.yaml or web_profiler.yaml.
+         */
         $this->cacheDir = $cacheDir;
     }
 
@@ -86,50 +83,46 @@ EOT
         $limit = (int) $input->getOption('limit');
         $io->title(sprintf('Listing the %d most recent profiles', $limit));
 
-        $finder = new Finder();
         $allProfiles = [];
         $checkedPaths = []; // Store paths actually checked
         $foundProfileTokens = []; // Keep track of tokens found to avoid duplicates
 
-        // Get the environment name from the cache directory
-        $envName = basename($this->cacheDir); // e.g., 'dev'
-        
         // Find all profiler directories in the cache structure
         $profilerDirs = $this->findProfilerDirectories($io);
-        
+
         if (empty($profilerDirs)) {
             $io->warning('No profiler directories found in the cache structure.');
             return Command::SUCCESS;
         }
-        
+
         // Process each profiler directory
         foreach ($profilerDirs as $profilerDir => $appId) {
             $checkedPaths[] = $profilerDir;
-            
+
             if (!is_dir($profilerDir)) {
                 continue;
             }
-            
-            $dsn = 'file:' . $profilerDir;
+
+            $dsn = sprintf('file:%s', $profilerDir);
             try {
                 $storage = new FileProfilerStorage($dsn);
                 $profiler = new Profiler($storage);
-                
+
                 // Adjust limit based on number of profiler directories
                 $findLimit = count($profilerDirs) > 1 ? ceil($limit / count($profilerDirs)) + 5 : $limit;
                 $tokens = $profiler->find(null, null, $findLimit, null, null, null);
-                
+
                 foreach ($tokens as $token) {
                     // Skip if this token was already found
                     if (isset($foundProfileTokens[$token['token']])) {
                         continue;
                     }
-                    
+
                     $profile = $profiler->loadProfile($token['token']);
                     if ($profile instanceof Profile) {
                         $profileData = ['profile' => $profile];
                         if ($appId) {
-                            $profileData['appId'] = $appId;
+                            $profileData['appVariant'] = $appId;
                         }
                         $allProfiles[] = $profileData;
                         $foundProfileTokens[$profile->getToken()] = true; // Mark token as found
@@ -151,8 +144,8 @@ EOT
         $limitedProfiles = array_slice($allProfiles, 0, $limit);
 
         $table = new Table($output);
-        $hasAppId = !empty(array_filter($limitedProfiles, fn($p) => isset($p['appId'])));
-        $headers = $hasAppId ? ['APP_ID', 'Token', 'IP', 'Method', 'URL', 'Time', 'Status'] : ['Token', 'IP', 'Method', 'URL', 'Time', 'Status'];
+        $hasAppVariant = !empty(array_filter($limitedProfiles, fn ($p) => isset($p['appVariant'])));
+        $headers = $hasAppVariant ? ['APP_VARIANT', 'Token', 'IP', 'Method', 'URL', 'Time', 'Status'] : ['Token', 'IP', 'Method', 'URL', 'Time', 'Status'];
         $table->setHeaders($headers);
 
         foreach ($limitedProfiles as $profileData) {
@@ -165,8 +158,8 @@ EOT
                 date('Y-m-d H:i:s', $profile->getTime()),
                 $profile->getStatusCode()
             ];
-            if ($hasAppId) {
-                array_unshift($rowData, $profileData['appId'] ?? '-');
+            if ($hasAppVariant) {
+                array_unshift($rowData, $profileData['appVariant'] ?? '-');
             }
             $table->addRow($rowData);
         }
@@ -184,32 +177,32 @@ EOT
         }
 
         $profile = null;
-        $foundAppId = null;
+        $foundAppVariant = null;
         $checkedPaths = [];
-        
+
         // Find all profiler directories in the cache structure
         $profilerDirs = $this->findProfilerDirectories($io);
-        
+
         if (empty($profilerDirs)) {
             $io->warning('No profiler directories found in the cache structure.');
             return Command::FAILURE;
         }
-        
+
         // Try to find the profile in each profiler directory
         foreach ($profilerDirs as $profilerDir => $appId) {
             $checkedPaths[] = $profilerDir;
-            
+
             if (!is_dir($profilerDir)) {
                 continue;
             }
-            
+
             $dsn = 'file:' . $profilerDir;
             try {
                 $storage = new FileProfilerStorage($dsn);
                 if ($storage->read($token)) {
                     $profiler = new Profiler($storage);
                     $profile = $profiler->loadProfile($token);
-                    $foundAppId = $appId;
+                    $foundAppVariant = $appId;
                     break; // Found the profile, no need to check other directories
                 }
             } catch (\Exception $e) {
@@ -224,7 +217,7 @@ EOT
             return Command::FAILURE;
         }
 
-        $io->title(sprintf('Profile for "%s"%s', $token, $foundAppId ? " (App: {$foundAppId})" : ""));
+        $io->title(sprintf('Profile for "%s"%s', $token, $foundAppVariant ? " (App Variant: {$foundAppVariant})" : ""));
 
         // --- Display Profile Info ---
         // ... (rest of show logic remains the same) ...
@@ -237,8 +230,8 @@ EOT
             ['Time' => date('Y-m-d H:i:s', $profile->getTime())],
             ['Status' => $profile->getStatusCode()]
         ];
-        if ($foundAppId) {
-            array_unshift($defList, ['App ID' => $foundAppId]);
+        if ($foundAppVariant) {
+            array_unshift($defList, ['App Variant' => $foundAppVariant]);
         }
         $io->definitionList(...$defList);
 
@@ -280,7 +273,7 @@ EOT
 
     /**
      * Find all profiler directories in the cache structure
-     * 
+     *
      * @param SymfonyStyle $io The IO interface for warnings
      * @return array An array of profiler directories with their associated app IDs
      */
@@ -289,23 +282,23 @@ EOT
         $profilerDirs = [];
         $cacheDir = $this->cacheDir;
         $envName = basename($cacheDir); // e.g., 'dev'
-        
+
         // Start with the direct path
-        $directProfilerPath = $cacheDir . '/profiler';
+        $directProfilerPath = sprintf('%s/profiler', $cacheDir);
         if (is_dir($directProfilerPath)) {
             // Check if this is an app-specific path
             $pathParts = explode('/', trim($cacheDir, '/'));
             $parentDirName = $pathParts[count($pathParts) - 2] ?? null;
-            $appId = (strpos($parentDirName, '_') !== false) ? explode('_', $parentDirName)[0] : null;
-            $profilerDirs[$directProfilerPath] = $appId;
+            $appVariant = (strpos($parentDirName, '_') !== false) ? $parentDirName : null;
+            $profilerDirs[$directProfilerPath] = $appVariant;
         }
-        
+
         // Find the base cache directory (var/cache)
         $baseCacheDir = dirname($cacheDir); // First level up
         if (strpos(basename($baseCacheDir), '_') !== false) {
             $baseCacheDir = dirname($baseCacheDir); // Second level up if needed
         }
-        
+
         // Use Finder to locate all profiler directories
         try {
             if (is_dir($baseCacheDir)) {
@@ -314,37 +307,37 @@ EOT
                     ->in($baseCacheDir)
                     ->path('/' . preg_quote($envName, '/') . '\/profiler$/')
                     ->depth('< 4'); // Limit depth to avoid excessive searching
-                
+
                 foreach ($finder as $dir) {
                     $profilerPath = $dir->getRealPath();
-                    
+
                     // Skip if we already have this path
                     if (isset($profilerDirs[$profilerPath])) {
                         continue;
                     }
-                    
-                    // Extract app ID from path if possible
+
+                    // Extract app variant from path if possible
                     $pathParts = explode('/', $profilerPath);
-                    $appId = null;
-                    
-                    // Look for app_* pattern in the path
+                    $appVariant = null;
+
+                    // Look for pattern with underscore in the path (e.g., voi_VOI)
                     foreach ($pathParts as $part) {
-                        if (strpos($part, '_') !== false && preg_match('/^([^_]+)_/', $part, $matches)) {
-                            $appId = $matches[1];
+                        if (strpos($part, '_') !== false) {
+                            $appVariant = $part; // Keep the full pattern
                             break;
                         }
                     }
-                    
-                    $profilerDirs[$profilerPath] = $appId;
+
+                    $profilerDirs[$profilerPath] = $appVariant;
                 }
             }
         } catch (\Exception $e) {
             $io->warning('Error searching for profiler directories: ' . $e->getMessage());
         }
-        
+
         return $profilerDirs;
     }
-    
+
 
 
     private function dumpData($variable): ?string
