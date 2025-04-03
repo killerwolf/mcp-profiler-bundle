@@ -156,22 +156,21 @@ class RunMCPServerCommand extends Command
         $arguments = $params['arguments'] ?? [];
 
         // Derive base cache directory and environment name
-        $baseCacheDir = dirname(dirname($this->cacheDir));
-        $envName = $this->environment;
+        $envName = $this->environment; // Keep environment name
 
         try {
             $result = match ($name) {
-                'profiler:list' => (new ProfilerList($baseCacheDir, $envName, $this->parameterBag))->execute(
+                'profiler:list' => (new ProfilerList($this->cacheDir, $envName, $this->parameterBag))->execute(
                     $arguments['limit'] ?? 10
                 ),
-                'profiler:get_collectors' => (new ProfilerGetAllCollectorByToken($baseCacheDir, $envName))->execute(
+                'profiler:get_collectors' => (new ProfilerGetAllCollectorByToken($this->cacheDir, $envName))->execute(
                     $arguments['token'] ?? ''
                 ),
-                'profiler:get_collector' => (new ProfilerGetOneCollectorByToken($baseCacheDir, $envName))->execute(
+                'profiler:get_collector' => (new ProfilerGetOneCollectorByToken($this->cacheDir, $envName))->execute(
                     $arguments['token'] ?? '',
                     $arguments['collector'] ?? ''
                 ),
-                'profiler:get_by_token' => (new ProfilerGetByTokenTool($baseCacheDir, $envName, $this->parameterBag))->execute(
+                'profiler:get_by_token' => (new ProfilerGetByTokenTool($this->cacheDir, $envName, $this->parameterBag))->execute(
                     $arguments['token'] ?? ''
                 ),
                 default => null, // Will be handled below

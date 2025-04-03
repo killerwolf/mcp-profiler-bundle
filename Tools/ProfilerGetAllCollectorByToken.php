@@ -8,87 +8,97 @@ use Symfony\Component\Finder\Finder;
 
 class ProfilerGetAllCollectorByToken
 {
+    // $baseCacheDir is the env-specific cache dir, e.g., var/cache/dev or var/cache/APP_ID/dev
     private string $baseCacheDir;
     private string $environment;
 
-    // Inject the Profiler service
     public function __construct(string $baseCacheDir, string $environment)
     {
         $this->baseCacheDir = $baseCacheDir;
         $this->environment = $environment;
     }
 
-    // Add type hint for the token parameter
     public function execute(string $token): string
     {
         $finder = new Finder();
         $profile = null;
         $foundAppId = null; // Optional: Track which app the token was found in
-        $multiAppChecked = false; // Flag to know if we checked the multi-app structure
-        $directProfilerPath = null; // Initialize path variable
+        $checkedPaths = []; // Store paths actually checked
 
-        // --- Try Multi-App Structure First ---
-        // Assumes baseCacheDir is like /path/to/var/cache
-        try {
-            $appIdDirs = $finder->directories()->in($this->baseCacheDir)->depth('== 0')->name('*_*');
-            $multiAppChecked = true; // We attempted to check this structure
-
-            if ($appIdDirs->hasResults()) {
-                foreach ($appIdDirs as $appIdDir) {
-                    $profilerDir = $appIdDir->getRealPath() . '/' . $this->environment . '/profiler';
-                    $dsn = 'file:' . $profilerDir;
-
-                    if (!is_dir($profilerDir)) {
-                        continue;
-                    }
-
-                    try {
-                        $storage = new FileProfilerStorage($dsn);
-                        if ($storage->read($token)) {
-                            $tempProfiler = new Profiler($storage);
-                            $profile = $tempProfiler->loadProfile($token);
-                            // $foundAppId = explode('_', $appIdDir->getFilename())[0]; // Optional
-                            if ($profile) {
-                                break; // Found the profile, exit multi-app loop
-                            }
-                        }
-                    } catch (\Exception $e) {
-                        continue; // Ignore errors for individual app storages
-                    }
-                }
-            }
-        } catch (\InvalidArgumentException $e) {
-            // Base cache dir might be inaccessible or not exist, proceed to check single-app path
-            $multiAppChecked = false; // Indicate multi-app check failed early
+        // --- Path Derivation ---
+        $envCacheDir = $this->baseCacheDir;
+        $envName = $this->environment;
+        $parentOfEnvCacheDir = dirname($envCacheDir);
+        $multiAppBaseSearchDir = $parentOfEnvCacheDir;
+        if (strpos(basename($parentOfEnvCacheDir), '_') !== false) {
+            $multiAppBaseSearchDir = dirname($parentOfEnvCacheDir);
         }
 
-        // --- Fallback to Single-App Structure if not found in Multi-App ---
-        if (!$profile) {
-            // Construct the path like /path/to/var/cache/dev/profiler
-            $directProfilerPath = $this->baseCacheDir . '/' . $this->environment . '/profiler';
+        // --- 1. Check Direct Path ---
+        $directProfilerPath = $envCacheDir . '/profiler';
+        $checkedPaths[] = $directProfilerPath;
 
-            if (is_dir($directProfilerPath)) {
-                 $dsn = 'file:' . $directProfilerPath;
-                 try {
-                     $storage = new FileProfilerStorage($dsn);
-                     // Check token existence first for efficiency
-                     if ($storage->read($token)) {
-                         $profiler = new Profiler($storage);
-                         $profile = $profiler->loadProfile($token);
-                         // $foundAppId = null; // Explicitly null for single-app
-                     }
-                 } catch (\Exception $e) {
-                     // Error accessing single-app profiler, let it fall through to the !$profile check
-                     // Consider logging this error
-                 }
+        if (is_dir($directProfilerPath)) {
+            $dsn = 'file:' . $directProfilerPath;
+            try {
+                $storage = new FileProfilerStorage($dsn);
+                if ($storage->read($token)) {
+                    $profiler = new Profiler($storage);
+                    $profile = $profiler->loadProfile($token);
+                    $pathParts = explode('/', trim($this->baseCacheDir, '/'));
+                    $parentDirName = $pathParts[count($pathParts) - 2] ?? null;
+                    $foundAppId = (strpos($parentDirName, '_') !== false) ? explode('_', $parentDirName)[0] : null;
+                }
+            } catch (\Exception $e) {
+                // $checkedPaths[count($checkedPaths)-1] .= ' (error)';
+            }
+        } else {
+             $checkedPaths[count($checkedPaths)-1] .= ' (not found)';
+        }
+
+        // --- 2. Check Multi-App Structure (Only if not found in direct path) ---
+        if (!$profile) {
+            $multiAppPathPattern = $multiAppBaseSearchDir . '/*_*/' . $envName . '/profiler';
+            $checkedPaths[] = $multiAppPathPattern;
+            try {
+                if (is_dir($multiAppBaseSearchDir)) {
+                    $appIdDirs = $finder->directories()->in($multiAppBaseSearchDir)->depth('== 0')->name('*_*');
+                    if ($appIdDirs->hasResults()) {
+                        foreach ($appIdDirs as $appIdDir) {
+                            $profilerDir = $appIdDir->getRealPath() . '/' . $envName . '/profiler';
+                            // Skip if this is the same as the direct path we already checked
+                            if ($profilerDir === $directProfilerPath) {
+                                continue;
+                            }
+                            $dsn = 'file:' . $profilerDir;
+                            if (!is_dir($profilerDir)) continue;
+
+                            try {
+                                $storage = new FileProfilerStorage($dsn);
+                                if ($storage->read($token)) {
+                                    $tempProfiler = new Profiler($storage);
+                                    $profile = $tempProfiler->loadProfile($token);
+                                    $foundAppId = explode('_', $appIdDir->getFilename())[0]; // Found via multi-app
+                                    if ($profile) break; // Found
+                                }
+                            } catch (\Exception $e) {
+                                // Ignore and continue search
+                            }
+                        }
+                    } else {
+                         // $checkedPaths[count($checkedPaths)-1] .= ' (no app dirs found)';
+                    }
+                } else {
+                     // $checkedPaths[count($checkedPaths)-1] .= ' (base dir not found)';
+                }
+            } catch (\InvalidArgumentException $e) {
+                 // $checkedPaths[count($checkedPaths)-1] .= ' (error accessing base dir)';
             }
         }
 
         // --- Process the found profile (if any) ---
         if (!$profile) {
-             $checkedPaths = $multiAppChecked ? $this->baseCacheDir . '/*_*/' . $this->environment . '/profiler' : '(multi-app check failed)';
-             $checkedPaths .= ($directProfilerPath && is_dir($directProfilerPath) ? ' and ' . $directProfilerPath : '');
-            return json_encode(['error' => "No profile found for token: {$token}. Checked: " . $checkedPaths]);
+            return json_encode(['error' => "No profile found for token: {$token}. Checked: " . implode(' and ', array_unique($checkedPaths))]);
         }
 
         // Get collector names from the found profile
