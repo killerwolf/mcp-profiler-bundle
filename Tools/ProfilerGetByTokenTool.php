@@ -3,17 +3,21 @@
 namespace Killerwolf\MCPProfilerBundle\Tools;
 
 use Symfony\Component\HttpKernel\Profiler\Profiler;
+use Symfony\Component\HttpKernel\Profiler\FileProfilerStorage;
+use Symfony\Component\Finder\Finder;
 use Symfony\Component\DependencyInjection\ContainerInterface;
 use Symfony\Component\DependencyInjection\ParameterBag\ParameterBagInterface;
 
 class ProfilerGetByTokenTool
 {
-    private ?Profiler $profiler = null;
+    private string $baseCacheDir;
+    private string $environment;
     private ?ParameterBagInterface $parameterBag = null;
 
-    public function __construct(?Profiler $profiler = null, ?ParameterBagInterface $parameterBag = null)
+    public function __construct(string $baseCacheDir, string $environment, ?ParameterBagInterface $parameterBag = null)
     {
-        $this->profiler = $profiler;
+        $this->baseCacheDir = $baseCacheDir;
+        $this->environment = $environment;
         $this->parameterBag = $parameterBag;
     }
 
@@ -22,15 +26,46 @@ class ProfilerGetByTokenTool
     public function execute(string $token): string
     {
         // Ensure profiler is available
-        if (!$this->profiler) {
-            return json_encode(['error' => 'Profiler service not available.']);
-        }
+        // Placeholder for profile search logic
 
         // Load the profile for the given token
+        $finder = new Finder();
+        $profile = null;
+        $foundAppId = null; // Optional: Track which app the token was found in
+
         try {
-            $profile = $this->profiler->loadProfile($token);
-        } catch (\Exception $e) {
-            return json_encode(['error' => "Error loading profile for token {$token}: " . $e->getMessage()]);
+            $appIdDirs = $finder->directories()->in($this->baseCacheDir)->depth('== 0')->name('*_*');
+        } catch (\InvalidArgumentException $e) {
+             return json_encode(['error' => 'Could not access base cache directory: ' . $this->baseCacheDir . ' - ' . $e->getMessage()]);
+        }
+
+        if (!$appIdDirs->hasResults()) {
+             return json_encode(['warning' => 'Could not find application cache directories in ' . $this->baseCacheDir]);
+        }
+
+        foreach ($appIdDirs as $appIdDir) {
+            $profilerDir = $appIdDir->getRealPath() . '/' . $this->environment . '/profiler';
+            $dsn = 'file:' . $profilerDir;
+
+            if (!is_dir($profilerDir)) {
+                continue;
+            }
+
+            try {
+                $storage = new FileProfilerStorage($dsn);
+                // Check if the token exists in this storage *before* creating Profiler
+                if ($storage->read($token)) {
+                    $tempProfiler = new Profiler($storage);
+                    $profile = $tempProfiler->loadProfile($token);
+                    $foundAppId = explode('_', $appIdDir->getFilename())[0]; // Store the App ID
+                    if ($profile) {
+                        break; // Found the profile, exit loop
+                    }
+                }
+            } catch (\Exception $e) {
+                // Ignore errors for individual storages, continue searching
+                continue;
+            }
         }
 
         if (!$profile) {

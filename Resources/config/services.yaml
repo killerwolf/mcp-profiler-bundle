@@ -11,7 +11,8 @@ services:
     # Command for running the MCP server
     Killerwolf\MCPProfilerBundle\Command\RunMCPServerCommand:
         arguments:
-            - '@?profiler' # Inject optional profiler service
+            - '%kernel.cache_dir%' # Inject cache directory path
+            - '%kernel.environment%' # Inject environment name
             - '@parameter_bag' # Inject parameter bag service
         tags:
             - { name: 'console.command' }

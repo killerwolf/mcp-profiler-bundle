@@ -3,32 +3,62 @@
 namespace Killerwolf\MCPProfilerBundle\Tools;
 
 use Symfony\Component\HttpKernel\Profiler\Profiler;
+use Symfony\Component\HttpKernel\Profiler\FileProfilerStorage;
+use Symfony\Component\Finder\Finder;
 use Symfony\Component\VarDumper\VarDumper;
 use Symfony\Component\VarDumper\Cloner\VarCloner;
 use Symfony\Component\VarDumper\Dumper\CliDumper;
 
 class ProfilerGetOneCollectorByToken
 {
-    private ?Profiler $profiler = null;
+    private string $baseCacheDir;
+    private string $environment;
 
     // Inject the Profiler service
-    public function __construct(Profiler $profiler)
+    public function __construct(string $baseCacheDir, string $environment)
     {
-        $this->profiler = $profiler;
+        $this->baseCacheDir = $baseCacheDir;
+        $this->environment = $environment;
     }
 
     // Add type hints for parameters
     public function execute(string $token, string $collectorName): string
     {
-        if (!$this->profiler) {
-            return json_encode(['error' => 'Profiler service not available.']);
+        $finder = new Finder();
+        $profile = null;
+        $foundAppId = null; // Optional
+
+        try {
+            $appIdDirs = $finder->directories()->in($this->baseCacheDir)->depth('== 0')->name('*_*');
+        } catch (\InvalidArgumentException $e) {
+             return json_encode(['error' => 'Could not access base cache directory: ' . $this->baseCacheDir . ' - ' . $e->getMessage()]);
         }
 
-        // Load the profile for the given token
-        try {
-            $profile = $this->profiler->loadProfile($token);
-        } catch (\Exception $e) {
-            return json_encode(['error' => "Error loading profile for token {$token}: " . $e->getMessage()]);
+        if (!$appIdDirs->hasResults()) {
+             return json_encode(['warning' => 'Could not find application cache directories in ' . $this->baseCacheDir]);
+        }
+
+        foreach ($appIdDirs as $appIdDir) {
+            $profilerDir = $appIdDir->getRealPath() . '/' . $this->environment . '/profiler';
+            $dsn = 'file:' . $profilerDir;
+
+            if (!is_dir($profilerDir)) {
+                continue;
+            }
+
+            try {
+                $storage = new FileProfilerStorage($dsn);
+                if ($storage->read($token)) {
+                    $tempProfiler = new Profiler($storage);
+                    $profile = $tempProfiler->loadProfile($token);
+                    // $foundAppId = explode('_', $appIdDir->getFilename())[0]; // Optional
+                    if ($profile) {
+                        break; // Found the profile
+                    }
+                }
+            } catch (\Exception $e) {
+                continue; // Ignore errors for individual storages
+            }
         }
 
         if (!$profile) {

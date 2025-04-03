@@ -15,6 +15,8 @@ use Symfony\Component\Finder\Finder;
 use Symfony\Component\HttpKernel\Profiler\FileProfilerStorage;
 use Symfony\Component\HttpKernel\Profiler\Profile; // Import Profile class
 use Symfony\Component\HttpKernel\KernelInterface; // Or just get kernel.cache_dir parameter
+use Symfony\Component\VarDumper\Cloner\VarCloner;
+use Symfony\Component\VarDumper\Dumper\CliDumper;
 
 #[AsCommand(name: 'mcp:profiler', description: 'Interact with Symfony profiler')]
 class ProfilerCommand extends Command
@@ -232,16 +234,32 @@ EOT
             }
             
             $io->section(sprintf('Collector: %s', $collectorName));
+            $data = null;
+            $dumpedData = null;
+            
             if (method_exists($collector, 'getData')) {
-                $data = $collector->getData();
-
-                if (is_array($data)) {
-                    $this->displayArrayData($data, $output, $io);
-                } else {
-                    $io->text(var_export($data, true));
+                try {
+                    $data = $collector->getData();
+                    
+                    if (is_array($data)) {
+                        $this->displayArrayData($data, $output, $io);
+                        return Command::SUCCESS;
+                    } else {
+                        $io->text(var_export($data, true));
+                        return Command::SUCCESS;
+                    }
+                } catch (\Exception $e) {
+                    $dumpedData = $this->dumpData($collector);
+                    $data = null;
                 }
             } else {
-                $io->warning(sprintf('Collector "%s" does not have a standard getData() method. Cannot display raw data.', $collectorName));
+                $dumpedData = $this->dumpData($collector);
+            }
+            
+            if ($dumpedData !== null) {
+                $io->text("Collector '{$collectorName}' data (dumped):\n" . $dumpedData);
+            } else {
+                $io->warning(sprintf('Could not retrieve or represent data for collector "%s".', $collectorName));
             }
         } else {
             // List available collectors
@@ -286,6 +304,25 @@ EOT
             } else {
                 $io->writeln(str_repeat(' ', $level * 2) . sprintf('%s: %s', $key, is_scalar($value) ? $value : var_export($value, true)));
             }
+        }
+    }
+    
+    /**
+     * Helper method to dump data using VarDumper
+     */
+    private function dumpData($variable): ?string
+    {
+        try {
+            $cloner = new VarCloner();
+            $dumper = new CliDumper();
+            $output = fopen('php://memory', 'r+');
+            $dumper->dump($cloner->cloneVar($variable), $output);
+            rewind($output);
+            $dump = stream_get_contents($output);
+            fclose($output);
+            return $dump;
+        } catch (\Exception $e) {
+            return "Error during data dumping: " . $e->getMessage();
         }
     }
 }

@@ -20,14 +20,16 @@ use Symfony\Component\HttpKernel\Profiler\Profiler;
 class RunMCPServerCommand extends Command
 {
     private const APP_VERSION = '1.0.0';
-    private ?Profiler $profiler;
+    private string $cacheDir;
+    private string $environment;
     private ParameterBagInterface $parameterBag;
 
     // Inject dependencies needed by the tools
-    public function __construct(?Profiler $profiler, ParameterBagInterface $parameterBag)
+    public function __construct(string $cacheDir, string $environment, ParameterBagInterface $parameterBag)
     {
         parent::__construct();
-        $this->profiler = $profiler;
+        $this->cacheDir = $cacheDir;
+        $this->environment = $environment;
         $this->parameterBag = $parameterBag;
     }
 
@@ -153,23 +155,23 @@ class RunMCPServerCommand extends Command
         $name = $params['name'] ?? null;
         $arguments = $params['arguments'] ?? [];
 
-        if (!$this->profiler && $name !== 'example:hello') {
-            return $this->sendApplicationError(new \LogicException('Profiler service is not available.'));
-        }
+        // Derive base cache directory and environment name
+        $baseCacheDir = dirname(dirname($this->cacheDir));
+        $envName = $this->environment;
 
         try {
             $result = match ($name) {
-                'profiler:list' => (new ProfilerList($this->profiler, null, $this->parameterBag))->execute(
+                'profiler:list' => (new ProfilerList($baseCacheDir, $envName, $this->parameterBag))->execute(
                     $arguments['limit'] ?? 10
                 ),
-                'profiler:get_collectors' => (new ProfilerGetAllCollectorByToken($this->profiler, null))->execute(
+                'profiler:get_collectors' => (new ProfilerGetAllCollectorByToken($baseCacheDir, $envName))->execute(
                     $arguments['token'] ?? ''
                 ),
-                'profiler:get_collector' => (new ProfilerGetOneCollectorByToken($this->profiler, null))->execute(
+                'profiler:get_collector' => (new ProfilerGetOneCollectorByToken($baseCacheDir, $envName))->execute(
                     $arguments['token'] ?? '',
                     $arguments['collector'] ?? ''
                 ),
-                'profiler:get_by_token' => (new ProfilerGetByTokenTool($this->profiler, null, $this->parameterBag))->execute(
+                'profiler:get_by_token' => (new ProfilerGetByTokenTool($baseCacheDir, $envName, $this->parameterBag))->execute(
                     $arguments['token'] ?? ''
                 ),
                 default => null, // Will be handled below
