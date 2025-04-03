@@ -18,6 +18,11 @@ class MCPProfilerExtension extends Extension
                 new FileLocator(__DIR__ . '/../Resources/config')
             );
             $loader->load('services.yaml');
+
+            // Load Twig configuration
+            if (class_exists('Twig\Environment')) {
+                $loader->load('twig.yaml');
+            }
         } catch (\Exception $e) {
             // Services file might not exist yet, which is fine
         }

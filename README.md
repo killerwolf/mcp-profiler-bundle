@@ -77,9 +77,6 @@ bin/console mcp:profiler list --limit=20
 # Show details for a specific profile
 bin/console mcp:profiler show <token>
 bin/console mcp:profiler show <token> --collector=request
-
-# Purge profiler data
-bin/console mcp:profiler purge
 ```
 
 ## How It Works
