@@ -1,0 +1,78 @@
+{% extends '@WebProfiler/Profiler/layout.html.twig' %}
+
+{% block toolbar %}
+    {% set icon %}
+        {# This is the icon shown in the toolbar #}
+        <span class="icon">
+            <svg width="24" height="24" viewBox="0 0 24 24" xmlns="http://www.w3.org/2000/svg">
+                <g transform="translate(2, 2) scale(0.16)">
+                    <path fill="#FFFFFF" d="M66.5,0H52.4l25.7,65h14.1L66.5,0z M25.7,0L0,65h14.4l5.3-13.6h26.9L51.8,65h14.4L40.5,0C40.5,0,25.7,0,25.7,0z M24.3,39.3l8.8-22.8l8.8,22.8H24.3z"/>
+                </g>
+            </svg>
+        </span>
+        <span class="sf-toolbar-value">MCP</span>
+    {% endset %}
+
+    {% set text %}
+        <div class="sf-toolbar-info-piece">
+            <b>Bundle Name</b>
+            <span>{{ collector.bundleName }}</span>
+        </div>
+        <div class="sf-toolbar-info-piece">
+            <b>Version</b>
+            <span>{{ collector.bundleVersion }}</span>
+        </div>
+        <div class="sf-toolbar-info-piece">
+            <b>Request Count</b>
+            <span>{{ collector.requestCount }}</span>
+        </div>
+    {% endset %}
+
+    {{ include('@WebProfiler/Profiler/toolbar_item.html.twig', { 'link': profiler_url }) }}
+{% endblock %}
+
+{% block menu %}
+    <span class="label">
+        <span class="icon">
+            <svg width="24" height="24" viewBox="0 0 24 24" xmlns="http://www.w3.org/2000/svg">
+                <g transform="translate(2, 2) scale(0.16)">
+                    <path fill="#000000" d="M66.5,0H52.4l25.7,65h14.1L66.5,0z M25.7,0L0,65h14.4l5.3-13.6h26.9L51.8,65h14.4L40.5,0C40.5,0,25.7,0,25.7,0z M24.3,39.3l8.8-22.8l8.8,22.8H24.3z"/>
+                </g>
+            </svg>
+        </span>
+        <strong>MCP Profiler</strong>
+    </span>
+{% endblock %}
+
+{% block panel %}
+    <h2>MCP Profiler</h2>
+    
+    <div class="metrics">
+        <div class="metric">
+            <span class="value">{{ collector.bundleName }}</span>
+            <span class="label">Bundle Name</span>
+        </div>
+        <div class="metric">
+            <span class="value">{{ collector.bundleVersion }}</span>
+            <span class="label">Version</span>
+        </div>
+        <div class="metric">
+            <span class="value">{{ collector.requestCount }}</span>
+            <span class="label">Request Count</span>
+        </div>
+        <div class="metric">
+            <span class="value">{{ collector.timestamp|date('Y-m-d H:i:s') }}</span>
+            <span class="label">Collected At</span>
+        </div>
+    </div>
+    
+    <h3>About MCP Profiler Bundle</h3>
+    <p>
+        This is a minimal data collector example for the MCP Profiler Bundle.
+        You can extend this collector to include more detailed information about your application.
+    </p>
+    <p>
+    <b>Contributions are welcome!</b> Visit our GitHub <a href="https://github.com/killerwolf/mcp-profiler-bundle" target="_blank" />https://github.com/killerwolf/mcp-profiler-bundle</a> to contribute to this project.
+
+    </p>
+{% endblock %}

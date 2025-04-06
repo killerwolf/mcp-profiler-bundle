@@ -7,11 +7,20 @@ services:
         
     # Create an alias for the Profiler class to the existing profiler service
     Symfony\Component\HttpKernel\Profiler\Profiler: '@profiler'
+    
+    # Register the data collector
+    Killerwolf\MCPProfilerBundle\DataCollector\MCPDataCollector:
+        arguments:
+            - '%mcp_profiler.name%'
+            - '%mcp_profiler.version%'
+        tags:
+            - { name: 'data_collector', template: '@MCPProfiler/data_collector/mcp.html.twig', id: 'mcp', priority: 200 }
 
     # Command for running the MCP server
     Killerwolf\MCPProfilerBundle\Command\RunMCPServerCommand:
         arguments:
-            - '@?profiler' # Inject optional profiler service
+            - '%kernel.cache_dir%' # Inject cache directory path
+            - '%kernel.environment%' # Inject environment name
             - '@parameter_bag' # Inject parameter bag service
         tags:
             - { name: 'console.command' }
@@ -20,7 +29,7 @@ services:
     # Command for testing profiler access (Seems unrelated to MCP server itself)
     Killerwolf\MCPProfilerBundle\Command\ProfilerCommand:
         arguments:
-            - '@?profiler' # Optional profiler injection
+            - '%kernel.cache_dir%' # Automatically inject the cache directory
         tags:
             - { name: 'console.command' }
             
