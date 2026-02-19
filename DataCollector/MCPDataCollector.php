@@ -24,7 +24,7 @@ class MCPDataCollector extends DataCollector implements LateDataCollectorInterfa
     /**
      * {@inheritdoc}
      */
-    public function collect(Request $request, Response $response, \Throwable $exception = null): void
+    public function collect(Request $request, Response $response, ?\Throwable $exception = null): void
     {
         $this->data = [
             'name' => $this->name,
