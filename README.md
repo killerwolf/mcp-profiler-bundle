@@ -1,5 +1,27 @@
 # MCP Server Bundle for Symfony
 
+> [!WARNING]
+> **This bundle is deprecated and no longer updated.**
+>
+> It was released in March 2025, before Symfony offered any official way to give AI coding agents access to profiler data. The official tools arrived at the end of 2025 as part of [Symfony AI](https://ai.symfony.com/). [Symfony AI Mate](https://symfony.com/doc/current/ai/components/mate.html) now does everything this bundle did, and also filters profiles by URL, status or date, redacts secrets before they reach the AI, inspects the service container and searches logs. Use it instead:
+>
+> ```bash
+> composer require --dev symfony/ai-mate
+> vendor/bin/mate init
+> composer require --dev symfony/ai-symfony-mate-extension symfony/ai-monolog-mate-extension
+> vendor/bin/mate discover
+> ```
+>
+> `mate discover` also installs Agent Skills that teach your coding agent when and how to use each tool:
+>
+> - [`symfony/ai-symfony-mate-extension`](https://github.com/symfony/ai-symfony-mate-extension): `symfony-profiler-debugging`, `symfony-request-triage`, `symfony-service-inspection`
+> - [`symfony/ai-monolog-mate-extension`](https://github.com/symfony/ai-monolog-mate-extension): `symfony-log-investigation`
+> - [`symfony/ai-mate`](https://github.com/symfony/ai-mate): `php-environment-check`, `system-information`
+>
+> For frontend work, add the [Symfony UX skills](https://github.com/smnandre/symfony-ux-skills) (Stimulus, Turbo, Twig Components, Live Components).
+>
+> Version 0.2.1 is the final release. The repository stays online as a record of the project.
+
 The Symfony MCP Profiler Bundle mimics the WebProfiler Bundle. It bridges the gap between Profiler data and your favorite MCP-enabled AI-powered IDE.
 
 ## Installation
